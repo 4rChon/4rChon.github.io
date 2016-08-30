@@ -30,10 +30,11 @@ var EntityContext = (function () {
     function EntityContext() {
         var _this = this;
         this.addEntity = function (entity) {
-            entity.init();
+            _this.entity[_this.index] = (entity);
+            entity.init(_this.index++);
             if (entity.attribute["Game"].val["type"] === "Player")
                 _this.player = entity;
-            _this.entity[_this.index++] = entity;
+            console.log("Create: " + entity.index + ' : ' + entity.attribute['Game'].val['type']);
         };
         this.getEntity = function (index) {
             return _this.entity[index];
@@ -42,7 +43,7 @@ var EntityContext = (function () {
             return _this.player;
         };
         this.removeEntity = function (index) {
-            _this.entity[index].finit();
+            console.log("Destroy: " + _this.entity[index] + ' : ' + _this.entity[index].attribute['Game'].val['type']);
             delete _this.entity[index];
         };
         this.updateEntities = function () {
@@ -50,8 +51,8 @@ var EntityContext = (function () {
                 _this.entity[key].update();
             }
         };
-        this.index = 0;
         this.entity = {};
+        this.index = 0;
     }
     return EntityContext;
 }());
@@ -271,10 +272,10 @@ var PlayerInput = (function () {
             if (_this.cooldown >= _this.weapon.val['rate']) {
                 var dx = _this.physics.val['dx'];
                 var dy = _this.physics.val['dy'];
-                if (dx == 0)
+                if (dx == 0 && dy == 0) {
                     dx = _this.lastDx;
-                if (dy == 0)
                     dy = _this.lastDy;
+                }
                 dx = -sign(dx) * _this.weapon.val['power'];
                 dy = -sign(dy) * _this.weapon.val['power'];
                 _this.lastDx = dx;
@@ -316,14 +317,21 @@ var EnemyAI = (function () {
 }());
 var BulletAI = (function () {
     function BulletAI() {
-        this.id = "";
         this.update = function (attribute) {
             if (attribute["Physics"].val['dx'] == 0 && attribute["Physics"].val['dy'] == 0)
-                attribute["Game"].val['Active'] = false;
+                attribute["Game"].val['active'] = false;
         };
         this.id = "AI";
     }
     return BulletAI;
+}());
+var EntityCollision = (function () {
+    function EntityCollision() {
+        this.update = function (attribtue) {
+        };
+        this.id = "Collision";
+    }
+    return EntityCollision;
 }());
 var Attribute = (function () {
     function Attribute(id, val) {
@@ -337,14 +345,20 @@ var Attribute = (function () {
 var Entity = (function () {
     function Entity(components, attributes) {
         var _this = this;
-        this.init = function () {
+        this.init = function (index) {
+            _this.index = index;
         };
         this.update = function () {
+            if (!_this.attribute["Game"].val['active']) {
+                _this.finit();
+                return;
+            }
             for (var key in _this.component) {
                 _this.component[key].update(_this.attribute);
             }
         };
         this.finit = function () {
+            entities.removeEntity(_this.index);
         };
         this.component = {};
         for (var key in components) {
