@@ -31,7 +31,7 @@ var EntityContext = (function () {
         var _this = this;
         this.addEntity = function (entity) {
             entity.init();
-            if (entity.attribute["Game"].val["Type"] === "Player")
+            if (entity.attribute["Game"].val["type"] === "Player")
                 _this.player = entity;
             _this.entity[_this.index++] = entity;
         };
@@ -134,7 +134,7 @@ var GameSystem = (function () {
         var _this = this;
         this.id = "";
         this.spawnTimer = 0;
-        this.maxTimer = 10;
+        this.maxTimer = 25;
         this.init = function () {
             _this.spawnPlayer(WIDTH / 2, HEIGHT / 2);
         };
@@ -159,7 +159,8 @@ var GameSystem = (function () {
                 new Attribute("Transform", { 'x': x, 'y': y, 'w': 10, 'h': 10 }),
                 new Attribute("Sprite", { 'color': "black" }),
                 new Attribute("Physics", { 'dx': 0, 'dy': 0, 'acceleration': 3, 'drag': 1, 'terminalVelocity': 15 }),
-                new Attribute("Game", { 'Type': 'Player' })
+                new Attribute("Game", { 'type': 'Player', 'active': true }),
+                new Attribute("Weapon", { 'rate': 5, 'power': 20 })
             ];
             var player = new Entity(playerComponents, playerAttributes);
             entities.addEntity(player);
@@ -173,11 +174,26 @@ var GameSystem = (function () {
             var enemyAttributes = [
                 new Attribute("Transform", { 'x': x, 'y': y, 'w': 15, 'h': 15 }),
                 new Attribute("Sprite", { 'color': "red" }),
-                new Attribute("Physics", { 'dx': 0, 'dy': 0, 'acceleration': 2, 'drag': 1, 'terminalVelocity': 25 }),
-                new Attribute("Game", { 'Type': 'Enemy' })
+                new Attribute("Physics", { 'dx': 0, 'dy': 0, 'acceleration': 2, 'drag': 1, 'terminalVelocity': 20 }),
+                new Attribute("Game", { 'type': 'Enemy', 'active': true })
             ];
             var enemy = new Entity(enemyComponents, enemyAttributes);
             entities.addEntity(enemy);
+        };
+        this.spawnBullet = function (x, y, dx, dy) {
+            var bulletComponents = [
+                new EntityGraphics(),
+                new EntityPhysics(),
+                new BulletAI()
+            ];
+            var bulletAttributes = [
+                new Attribute("Transform", { 'x': x, 'y': y, 'w': 5, 'h': 5 }),
+                new Attribute("Sprite", { 'color': "black" }),
+                new Attribute("Physics", { 'dx': dx, 'dy': dy, 'acceleration': 0, 'drag': 1, 'terminalVelocity': 100 }),
+                new Attribute("Game", { 'type': 'Bullet', 'active': true })
+            ];
+            var bullet = new Entity(bulletComponents, bulletAttributes);
+            entities.addEntity(bullet);
         };
         this.id = "Game";
         this.spawnTimer = 0;
@@ -223,8 +239,13 @@ var PlayerInput = (function () {
     function PlayerInput() {
         var _this = this;
         this.id = "";
+        this.lastDx = 1;
+        this.lastDy = 0;
         this.update = function (attribute) {
             _this.physics = attribute["Physics"];
+            _this.transform = attribute["Transform"];
+            _this.weapon = attribute["Weapon"];
+            _this.cooldown++;
         };
         this.left = function () {
             if (_this.physics.val['dx'] > 0)
@@ -247,9 +268,23 @@ var PlayerInput = (function () {
             _this.physics.val['dx'] += _this.physics.val['acceleration'];
         };
         this.fire = function () {
-            console.log("fire");
+            if (_this.cooldown >= _this.weapon.val['rate']) {
+                var dx = _this.physics.val['dx'];
+                var dy = _this.physics.val['dy'];
+                if (dx == 0)
+                    dx = _this.lastDx;
+                if (dy == 0)
+                    dy = _this.lastDy;
+                dx = -sign(dx) * _this.weapon.val['power'];
+                dy = -sign(dy) * _this.weapon.val['power'];
+                _this.lastDx = dx;
+                _this.lastDy = dy;
+                systems.system["Game"].spawnBullet(_this.transform.val['x'], _this.transform.val['y'], dx, dy);
+                _this.cooldown = 0;
+            }
         };
         this.id = "Input";
+        this.cooldown = 0;
         var inputSystem = systems.system["Input"];
         inputSystem.addKeycodeCallback(65, this.left);
         inputSystem.addKeycodeCallback(87, this.up);
@@ -278,6 +313,17 @@ var EnemyAI = (function () {
         this.id = "AI";
     }
     return EnemyAI;
+}());
+var BulletAI = (function () {
+    function BulletAI() {
+        this.id = "";
+        this.update = function (attribute) {
+            if (attribute["Physics"].val['dx'] == 0 && attribute["Physics"].val['dy'] == 0)
+                attribute["Game"].val['Active'] = false;
+        };
+        this.id = "AI";
+    }
+    return BulletAI;
 }());
 var Attribute = (function () {
     function Attribute(id, val) {
