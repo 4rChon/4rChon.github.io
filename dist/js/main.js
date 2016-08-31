@@ -161,6 +161,7 @@ var GraphicsSystem = (function () {
             _this.canvasContext.fillText("y", 50, 50);
             _this.canvasContext.fillText("+", 70, 50);
             _this.canvasContext.fillText("-" + entities.getPlayer().attribute['Weapon'].val['cooldown'], 90, 50);
+            _this.canvasContext.fillText("(" + systems.getSystem('Game').weaponRateCost + ')', 130, 50);
         };
         this.renderPower = function () {
             _this.canvasContext.fillStyle = "#999";
@@ -168,6 +169,7 @@ var GraphicsSystem = (function () {
             _this.canvasContext.fillText("u", 50, 100);
             _this.canvasContext.fillText("+", 70, 100);
             _this.canvasContext.fillText("*" + entities.getPlayer().attribute['Weapon'].val['power'], 90, 100);
+            _this.canvasContext.fillText("(" + systems.getSystem('Game').weaponPowerCost + ')', 130, 100);
         };
         this.renderSpawnRate = function () {
             _this.canvasContext.fillStyle = "#999";
@@ -175,6 +177,7 @@ var GraphicsSystem = (function () {
             _this.canvasContext.fillText("i", 50, 150);
             _this.canvasContext.fillText("+", 70, 150);
             _this.canvasContext.fillText("/" + systems.getSystem('Game').spawnTimerMax, 90, 150);
+            _this.canvasContext.fillText("(" + systems.getSystem('Game').spawnTimerCost + ')', 130, 150);
         };
         this.renderSpawnAmount = function () {
             _this.canvasContext.fillStyle = "#999";
@@ -182,6 +185,7 @@ var GraphicsSystem = (function () {
             _this.canvasContext.fillText("o", 50, 200);
             _this.canvasContext.fillText("+", 70, 200);
             _this.canvasContext.fillText("x" + systems.getSystem('Game').spawnAmount, 90, 200);
+            _this.canvasContext.fillText("(" + systems.getSystem('Game').spawnAmountCost + ')', 130, 200);
         };
         this.id = "Graphics";
         this.state = SystemState.None;
@@ -253,11 +257,19 @@ var GameSystem = (function () {
         this.currentScore = 0;
         this.spawnTimer = 0;
         this.spawnAmount = 0;
+        this.spawnAmountCost = 0;
         this.spawnTimerMax = 0;
+        this.spawnTimerCost = 0;
+        this.weaponPowerCost = 0;
+        this.weaponRateCost = 0;
         this.init = function () {
             _this.state = SystemState.Init;
             _this.score = 0;
             _this.currentScore = 0;
+            _this.spawnAmountCost = 100;
+            _this.spawnTimerCost = 100;
+            _this.weaponPowerCost = 100;
+            _this.weaponRateCost = 100;
             _this.spawnTimer = 0;
             _this.spawnAmount = 1;
             _this.spawnTimerMax = 25;
@@ -273,7 +285,7 @@ var GameSystem = (function () {
         };
         this.updateSpawn = function () {
             _this.spawnTimer++;
-            if (_this.spawnTimer == _this.spawnTimerMax) {
+            if (_this.spawnTimer >= _this.spawnTimerMax) {
                 for (var i = 0; i < _this.spawnAmount; i++) {
                     var x = Math.floor((Math.random() * WIDTH) + 1);
                     var y = Math.floor((Math.random() * HEIGHT) + 1);
@@ -301,12 +313,13 @@ var GameSystem = (function () {
             return _this.currentScore;
         };
         this.upgradePower = function () {
-            if (_this.score < 100) {
+            if (_this.score < _this.weaponPowerCost) {
                 console.log("Not enough score");
                 return;
             }
             var weapon = entities.getPlayer().attribute['Weapon'];
-            _this.score -= 100;
+            _this.score -= _this.weaponPowerCost;
+            _this.weaponPowerCost += 25;
             weapon.val['power']++;
         };
         this.upgradeCooldown = function () {
@@ -315,29 +328,32 @@ var GameSystem = (function () {
                 console.log("Already at minimum cooldown");
                 return;
             }
-            if (_this.score < 100) {
+            if (_this.score < _this.weaponRateCost) {
                 console.log("Not enough score");
                 return;
             }
-            _this.score -= 100;
+            _this.score -= _this.weaponRateCost;
+            _this.weaponRateCost += 50;
             weapon.val['cooldown']--;
         };
         this.upgradeSpawnRate = function () {
-            if (_this.score < 100) {
+            if (_this.score < _this.spawnTimerCost) {
                 console.log("Not enough score");
                 return;
             }
-            _this.score -= 100;
+            _this.score -= _this.spawnTimerCost;
+            _this.spawnTimerCost += 75;
             if (_this.spawnTimerMax > 0) {
                 _this.spawnTimerMax--;
             }
         };
         this.upgradeSpawnAmount = function () {
-            if (_this.score < 100) {
+            if (_this.score < _this.spawnAmountCost) {
                 console.log("Not enough score");
                 return;
             }
-            _this.score -= 100;
+            _this.score -= _this.spawnAmountCost;
+            _this.spawnAmountCost *= 2;
             _this.spawnAmount++;
         };
         this.spawnPlayer = function (position, velocity, dimensions) {
@@ -502,8 +518,8 @@ var PlayerInput = (function () {
         inputSystem.addKeycodeCallback(83, this.down);
         inputSystem.addKeycodeCallback(68, this.right);
         //inputSystem.addKeycodeCallback(32, this.fire);
-        inputSystem.addKeycodeCallback(89, gameSystem.upgradePower);
-        inputSystem.addKeycodeCallback(85, gameSystem.upgradeCooldown);
+        inputSystem.addKeycodeCallback(89, gameSystem.upgradeCooldown);
+        inputSystem.addKeycodeCallback(85, gameSystem.upgradePower);
         inputSystem.addKeycodeCallback(73, gameSystem.upgradeSpawnRate);
         inputSystem.addKeycodeCallback(79, gameSystem.upgradeSpawnAmount);
     }
