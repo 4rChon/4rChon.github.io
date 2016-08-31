@@ -1,5 +1,12 @@
 var WIDTH = 1024;
 var HEIGHT = 1024;
+var SystemState;
+(function (SystemState) {
+    SystemState[SystemState["None"] = 0] = "None";
+    SystemState[SystemState["Init"] = 1] = "Init";
+    SystemState[SystemState["Update"] = 2] = "Update";
+    SystemState[SystemState["Finit"] = 3] = "Finit";
+})(SystemState || (SystemState = {}));
 var Vector = (function () {
     function Vector(x, y) {
         var _this = this;
@@ -65,8 +72,8 @@ var SystemContext = (function () {
     function SystemContext() {
         var _this = this;
         this.addSystem = function (system) {
-            system.init();
             _this.system[system.id] = system;
+            console.log("Register System: " + system.id);
         };
         this.getSystem = function (name) {
             return _this.system[name];
@@ -77,6 +84,8 @@ var SystemContext = (function () {
         };
         this.updateSystems = function () {
             for (var key in _this.system) {
+                if (_this.system[key].state == SystemState.None)
+                    _this.system[key].init();
                 _this.system[key].update();
             }
         };
@@ -117,11 +126,24 @@ var GraphicsSystem = (function () {
         var _this = this;
         this.id = "";
         this.init = function () {
+            _this.state = SystemState.Init;
             var canvas = document.createElement("canvas");
             canvas.width = WIDTH;
             canvas.height = HEIGHT;
             document.getElementById("canvasContainer").appendChild(canvas);
             _this.canvasContext = canvas.getContext("2d");
+        };
+        this.update = function () {
+            _this.state = SystemState.Update;
+            _this.clear();
+            _this.renderScore();
+            _this.renderCooldown();
+            _this.renderPower();
+            _this.renderSpawnRate();
+            _this.renderSpawnAmount();
+        };
+        this.finit = function () {
+            _this.state = SystemState.Finit;
         };
         this.clear = function () {
             _this.canvasContext.fillStyle = "white";
@@ -131,42 +153,82 @@ var GraphicsSystem = (function () {
             _this.canvasContext.fillStyle = "#eee";
             _this.canvasContext.font = "400px Arial";
             _this.canvasContext.textAlign = "center";
-            _this.canvasContext.fillText("" + systems.getSystem("Game").getCurrentScore(), WIDTH / 2, HEIGHT / 2);
+            _this.canvasContext.fillText("" + systems.getSystem('Game').getCurrentScore(), WIDTH / 2, HEIGHT / 2);
         };
-        this.update = function () {
-            _this.clear();
-            _this.renderScore();
+        this.renderCooldown = function () {
+            _this.canvasContext.fillStyle = "#999";
+            _this.canvasContext.font = "15px Arial";
+            _this.canvasContext.fillText("y", 50, 50);
+            _this.canvasContext.fillText("+", 70, 50);
+            _this.canvasContext.fillText("-" + entities.getPlayer().attribute['Weapon'].val['cooldown'], 90, 50);
         };
-        this.finit = function () {
+        this.renderPower = function () {
+            _this.canvasContext.fillStyle = "#999";
+            _this.canvasContext.font = "15px Arial";
+            _this.canvasContext.fillText("u", 50, 100);
+            _this.canvasContext.fillText("+", 70, 100);
+            _this.canvasContext.fillText("*" + entities.getPlayer().attribute['Weapon'].val['power'], 90, 100);
+        };
+        this.renderSpawnRate = function () {
+            _this.canvasContext.fillStyle = "#999";
+            _this.canvasContext.font = "15px Arial";
+            _this.canvasContext.fillText("i", 50, 150);
+            _this.canvasContext.fillText("+", 70, 150);
+            _this.canvasContext.fillText("/" + systems.getSystem('Game').spawnTimerMax, 90, 150);
+        };
+        this.renderSpawnAmount = function () {
+            _this.canvasContext.fillStyle = "#999";
+            _this.canvasContext.font = "15px Arial";
+            _this.canvasContext.fillText("o", 50, 200);
+            _this.canvasContext.fillText("+", 70, 200);
+            _this.canvasContext.fillText("x" + systems.getSystem('Game').spawnAmount, 90, 200);
         };
         this.id = "Graphics";
+        this.state = SystemState.None;
     }
     return GraphicsSystem;
 }());
 var PhysicsSystem = (function () {
     function PhysicsSystem() {
         var _this = this;
-        this.id = "";
-        this.timeDelta = 1;
         this.init = function () {
-            _this.id = "Physics";
+            _this.state = SystemState.Init;
         };
         this.update = function () {
+            _this.state = SystemState.Update;
         };
         this.finit = function () {
+            _this.state = SystemState.Finit;
         };
+        this.id = 'Physics';
+        this.state = SystemState.None;
     }
     return PhysicsSystem;
 }());
 var InputSystem = (function () {
     function InputSystem() {
         var _this = this;
-        this.id = "";
         this.keyCallback = {};
         this.keyDown = {};
         this.init = function () {
+            _this.state = SystemState.Init;
             document.addEventListener('keydown', _this.keyboardDown);
             document.addEventListener('keyup', _this.keyboardUp);
+        };
+        this.update = function () {
+            _this.state = SystemState.Update;
+            for (var key in _this.keyDown) {
+                var is_down = _this.keyDown[key];
+                if (is_down) {
+                    var callback = _this.keyCallback[key];
+                    if (callback != null) {
+                        callback();
+                    }
+                }
+            }
+        };
+        this.finit = function () {
+            _this.state = SystemState.Finit;
         };
         this.keyboardDown = function (event) {
             event.preventDefault();
@@ -179,40 +241,45 @@ var InputSystem = (function () {
             _this.keyCallback[keycode] = f;
             _this.keyDown[keycode] = false;
         };
-        this.update = function () {
-            for (var key in _this.keyDown) {
-                var is_down = _this.keyDown[key];
-                if (is_down) {
-                    var callback = _this.keyCallback[key];
-                    if (callback != null) {
-                        callback();
-                    }
-                }
-            }
-        };
-        this.finit = function () {
-        };
-        this.id = "Input";
+        this.id = 'Input';
+        this.state = SystemState.None;
     }
     return InputSystem;
 }());
 var GameSystem = (function () {
     function GameSystem() {
         var _this = this;
+        this.score = 0;
+        this.currentScore = 0;
+        this.spawnTimer = 0;
+        this.spawnAmount = 0;
+        this.spawnTimerMax = 0;
         this.init = function () {
+            _this.state = SystemState.Init;
+            _this.score = 0;
+            _this.currentScore = 0;
+            _this.spawnTimer = 0;
+            _this.spawnAmount = 1;
+            _this.spawnTimerMax = 25;
             _this.spawnPlayer(new Vector(WIDTH / 2, HEIGHT / 2), new Vector(0, 0), new Vector(10, 10));
         };
         this.update = function () {
+            _this.state = SystemState.Update;
             _this.updateSpawn();
             _this.updateScore();
         };
+        this.finit = function () {
+            _this.state = SystemState.Finit;
+        };
         this.updateSpawn = function () {
             _this.spawnTimer++;
-            if (_this.spawnTimer == _this.maxTimer) {
-                var x = Math.floor((Math.random() * WIDTH) + 1);
-                var y = Math.floor((Math.random() * HEIGHT) + 1);
-                _this.spawnEnemy(new Vector(x, y), new Vector(0, 0), new Vector(15, 15));
-                _this.spawnTimer = 0;
+            if (_this.spawnTimer == _this.spawnTimerMax) {
+                for (var i = 0; i < _this.spawnAmount; i++) {
+                    var x = Math.floor((Math.random() * WIDTH) + 1);
+                    var y = Math.floor((Math.random() * HEIGHT) + 1);
+                    _this.spawnEnemy(new Vector(x, y), new Vector(0, 0), new Vector(15, 15));
+                    _this.spawnTimer = 0;
+                }
             }
         };
         this.updateScore = function () {
@@ -222,10 +289,10 @@ var GameSystem = (function () {
                 _this.currentScore--;
         };
         this.addScore = function (score) {
-            _this.score += score;
+            _this.score += score * _this.spawnAmount;
         };
         this.reduceScore = function (score) {
-            _this.score -= score;
+            _this.score -= score * _this.spawnAmount;
         };
         this.getScore = function () {
             return _this.score;
@@ -233,14 +300,53 @@ var GameSystem = (function () {
         this.getCurrentScore = function () {
             return _this.currentScore;
         };
-        this.finit = function () {
+        this.upgradePower = function () {
+            if (_this.score < 100) {
+                console.log("Not enough score");
+                return;
+            }
+            var weapon = entities.getPlayer().attribute['Weapon'];
+            _this.score -= 100;
+            weapon.val['power']++;
+        };
+        this.upgradeCooldown = function () {
+            var weapon = entities.getPlayer().attribute['Weapon'];
+            if (weapon.val['cooldown'] == 1) {
+                console.log("Already at minimum cooldown");
+                return;
+            }
+            if (_this.score < 100) {
+                console.log("Not enough score");
+                return;
+            }
+            _this.score -= 100;
+            weapon.val['cooldown']--;
+        };
+        this.upgradeSpawnRate = function () {
+            if (_this.score < 100) {
+                console.log("Not enough score");
+                return;
+            }
+            _this.score -= 100;
+            if (_this.spawnTimerMax > 0) {
+                _this.spawnTimerMax--;
+            }
+        };
+        this.upgradeSpawnAmount = function () {
+            if (_this.score < 100) {
+                console.log("Not enough score");
+                return;
+            }
+            _this.score -= 100;
+            _this.spawnAmount++;
         };
         this.spawnPlayer = function (position, velocity, dimensions) {
             var playerComponents = [
                 new EntityGraphics(),
                 new EntityPhysics(),
                 new EntityCollision(),
-                new PlayerInput()
+                new PlayerInput(),
+                new PlayerAI()
             ];
             var playerAttributes = [
                 new Attribute("Transform", { 'position': position, 'dimensions': dimensions }),
@@ -248,7 +354,7 @@ var GameSystem = (function () {
                 new Attribute("Physics", { 'velocity': velocity, 'acceleration': 3, 'drag': 1, 'terminalVelocity': 15 }),
                 new Attribute("Collision", { 'collidingWith': 'Nothing' }),
                 new Attribute("Game", { 'index': -1, 'type': 'Player', 'active': true }),
-                new Attribute("Weapon", { 'rate': 5, 'power': 20 })
+                new Attribute("Weapon", { 'cooldown': 10, 'power': 20 })
             ];
             var player = new Entity(playerComponents, playerAttributes);
             entities.addEntity(player);
@@ -287,11 +393,8 @@ var GameSystem = (function () {
             var bullet = new Entity(bulletComponents, bulletAttributes);
             entities.addEntity(bullet);
         };
-        this.id = "Game";
-        this.score = 0;
-        this.currentScore = 0;
-        this.spawnTimer = 0;
-        this.maxTimer = 25;
+        this.id = 'Game';
+        this.state = SystemState.None;
     }
     return GameSystem;
 }());
@@ -370,8 +473,6 @@ var PlayerInput = (function () {
         this.update = function (attribute) {
             _this.physics = attribute["Physics"];
             _this.transform = attribute["Transform"];
-            _this.weapon = attribute["Weapon"];
-            _this.cooldown++;
         };
         this.left = function () {
             if (_this.physics.val['velocity'].x > 0)
@@ -393,31 +494,51 @@ var PlayerInput = (function () {
                 _this.physics.val['velocity'].x = 0;
             _this.physics.val['velocity'].x += _this.physics.val['acceleration'];
         };
-        this.fire = function () {
-            var orientation = new Vector(0, 0);
-            if (_this.cooldown >= _this.weapon.val['rate']) {
-                orientation.copy(_this.physics.val['velocity']);
-                if (orientation.magnitude() == 0) {
-                    orientation.copy(_this.lastOrientation);
-                }
-                orientation.normalize().multiply(-_this.weapon.val['power']);
-                _this.lastOrientation.copy(orientation);
-                var position = _this.transform.val['position'];
-                systems.getSystem("Game").spawnBullet(new Vector(position.x, position.y), orientation, new Vector(5, 5));
-                _this.cooldown = 0;
-            }
-        };
         this.id = "Input";
-        this.cooldown = 0;
-        this.lastOrientation = new Vector(1, 0);
         var inputSystem = systems.getSystem("Input");
+        var gameSystem = systems.getSystem("Game");
         inputSystem.addKeycodeCallback(65, this.left);
         inputSystem.addKeycodeCallback(87, this.up);
         inputSystem.addKeycodeCallback(83, this.down);
         inputSystem.addKeycodeCallback(68, this.right);
-        inputSystem.addKeycodeCallback(32, this.fire);
+        //inputSystem.addKeycodeCallback(32, this.fire);
+        inputSystem.addKeycodeCallback(89, gameSystem.upgradePower);
+        inputSystem.addKeycodeCallback(85, gameSystem.upgradeCooldown);
+        inputSystem.addKeycodeCallback(73, gameSystem.upgradeSpawnRate);
+        inputSystem.addKeycodeCallback(79, gameSystem.upgradeSpawnAmount);
     }
     return PlayerInput;
+}());
+var PlayerAI = (function () {
+    function PlayerAI() {
+        var _this = this;
+        this.id = "";
+        this.update = function (attribute) {
+            _this.physics = attribute['Physics'];
+            _this.transform = attribute['Transform'];
+            _this.weapon = attribute['Weapon'];
+            _this.cooldown++;
+            if (_this.cooldown >= _this.weapon.val['cooldown']) {
+                _this.fire();
+                _this.cooldown = 0;
+            }
+        };
+        this.fire = function () {
+            var orientation = new Vector(0, 0);
+            orientation.copy(_this.physics.val['velocity']);
+            if (orientation.magnitude() == 0) {
+                orientation.copy(_this.lastOrientation);
+            }
+            orientation.normalize().multiply(-_this.weapon.val['power']);
+            _this.lastOrientation.copy(orientation);
+            var position = _this.transform.val['position'];
+            systems.getSystem("Game").spawnBullet(new Vector(position.x, position.y), orientation, new Vector(5, 5));
+        };
+        this.id = "AI";
+        this.cooldown = 0;
+        this.lastOrientation = new Vector(1, 0);
+    }
+    return PlayerAI;
 }());
 var EnemyAI = (function () {
     function EnemyAI() {
@@ -506,10 +627,10 @@ function gameLoop() {
 var systems = new SystemContext();
 var entities = new EntityContext();
 window.onload = function () {
-    systems.addSystem(new GraphicsSystem());
     systems.addSystem(new PhysicsSystem());
     systems.addSystem(new InputSystem());
     systems.addSystem(new GameSystem());
+    systems.addSystem(new GraphicsSystem());
     gameLoop();
 };
 //# sourceMappingURL=main.js.map
