@@ -1,5 +1,63 @@
 var WIDTH = 1024;
 var HEIGHT = 1024;
+var Vector = (function () {
+    function Vector(x, y) {
+        var _this = this;
+        this.x = 0;
+        this.y = 0;
+        this.magnitude = function () {
+            return Math.sqrt(_this.x * _this.x + _this.y * _this.y);
+        };
+        this.setMagnitude = function (magnitude) {
+            var angle = _this.getAngle();
+            _this.x = magnitude * Math.cos(angle);
+            _this.y = magnitude * Math.sin(angle);
+        };
+        this.magSq = function () {
+            return _this.x * _this.x + _this.y * _this.y;
+        };
+        this.normalize = function () {
+            var len = _this.magnitude();
+            _this.x /= len;
+            _this.y /= len;
+            return _this;
+        };
+        this.zero = function () {
+            _this.x = 0;
+            _this.y = 0;
+        };
+        this.copy = function (v) {
+            _this.x = v.x;
+            _this.y = v.y;
+        };
+        this.rotate = function (radians) {
+            var cos = Math.cos(radians);
+            var sin = Math.sin(radians);
+            var x = (cos * _this.x) + (sin * _this.y);
+            var y = (cos * _this.y) - (sin * _this.x);
+            _this.x = x;
+            _this.y = y;
+        };
+        this.getAngle = function () {
+            return Math.atan2(_this.y, _this.x);
+        };
+        this.multiply = function (value) {
+            _this.x *= value;
+            _this.y *= value;
+        };
+        this.add = function (v) {
+            _this.x += v.x;
+            _this.y += v.y;
+        };
+        this.subtract = function (v) {
+            _this.x -= v.x;
+            _this.y -= v.y;
+        };
+        this.x = x;
+        this.y = y;
+    }
+    return Vector;
+}());
 function sign(x) {
     return typeof x === 'number' ? x ? x < 0 ? -1 : 1 : x === x ? 0 : NaN : NaN;
 }
@@ -34,7 +92,6 @@ var EntityContext = (function () {
             entity.init(_this.index++);
             if (entity.attribute["Game"].val["type"] === "Player")
                 _this.player = entity;
-            console.log("Create: " + entity.index + ' : ' + entity.attribute['Game'].val['type']);
         };
         this.getEntity = function (index) {
             return _this.entity[index];
@@ -43,7 +100,6 @@ var EntityContext = (function () {
             return _this.player;
         };
         this.removeEntity = function (index) {
-            console.log("Destroy: " + _this.entity[index] + ' : ' + _this.entity[index].attribute['Game'].val['type']);
             delete _this.entity[index];
         };
         this.updateEntities = function () {
@@ -71,8 +127,15 @@ var GraphicsSystem = (function () {
             _this.canvasContext.fillStyle = "white";
             _this.canvasContext.fillRect(0, 0, WIDTH, HEIGHT);
         };
+        this.renderScore = function () {
+            _this.canvasContext.fillStyle = "#eee";
+            _this.canvasContext.font = "400px Arial";
+            _this.canvasContext.textAlign = "center";
+            _this.canvasContext.fillText("" + systems.getSystem("Game").getCurrentScore(), WIDTH / 2, HEIGHT / 2);
+        };
         this.update = function () {
             _this.clear();
+            _this.renderScore();
         };
         this.finit = function () {
         };
@@ -82,8 +145,11 @@ var GraphicsSystem = (function () {
 }());
 var PhysicsSystem = (function () {
     function PhysicsSystem() {
+        var _this = this;
         this.id = "";
+        this.timeDelta = 1;
         this.init = function () {
+            _this.id = "Physics";
         };
         this.update = function () {
         };
@@ -133,71 +199,99 @@ var InputSystem = (function () {
 var GameSystem = (function () {
     function GameSystem() {
         var _this = this;
-        this.id = "";
-        this.spawnTimer = 0;
-        this.maxTimer = 25;
         this.init = function () {
-            _this.spawnPlayer(WIDTH / 2, HEIGHT / 2);
+            _this.spawnPlayer(new Vector(WIDTH / 2, HEIGHT / 2), new Vector(0, 0), new Vector(10, 10));
         };
         this.update = function () {
+            _this.updateSpawn();
+            _this.updateScore();
+        };
+        this.updateSpawn = function () {
             _this.spawnTimer++;
             if (_this.spawnTimer == _this.maxTimer) {
                 var x = Math.floor((Math.random() * WIDTH) + 1);
                 var y = Math.floor((Math.random() * HEIGHT) + 1);
-                _this.spawnEnemy(x, y);
+                _this.spawnEnemy(new Vector(x, y), new Vector(0, 0), new Vector(15, 15));
                 _this.spawnTimer = 0;
             }
         };
+        this.updateScore = function () {
+            if (_this.currentScore < _this.score)
+                _this.currentScore++;
+            else if (_this.currentScore > _this.score)
+                _this.currentScore--;
+        };
+        this.addScore = function (score) {
+            _this.score += score;
+        };
+        this.reduceScore = function (score) {
+            _this.score -= score;
+        };
+        this.getScore = function () {
+            return _this.score;
+        };
+        this.getCurrentScore = function () {
+            return _this.currentScore;
+        };
         this.finit = function () {
         };
-        this.spawnPlayer = function (x, y) {
+        this.spawnPlayer = function (position, velocity, dimensions) {
             var playerComponents = [
                 new EntityGraphics(),
                 new EntityPhysics(),
+                new EntityCollision(),
                 new PlayerInput()
             ];
             var playerAttributes = [
-                new Attribute("Transform", { 'x': x, 'y': y, 'w': 10, 'h': 10 }),
+                new Attribute("Transform", { 'position': position, 'dimensions': dimensions }),
                 new Attribute("Sprite", { 'color': "black" }),
-                new Attribute("Physics", { 'dx': 0, 'dy': 0, 'acceleration': 3, 'drag': 1, 'terminalVelocity': 15 }),
-                new Attribute("Game", { 'type': 'Player', 'active': true }),
+                new Attribute("Physics", { 'velocity': velocity, 'acceleration': 3, 'drag': 1, 'terminalVelocity': 15 }),
+                new Attribute("Collision", { 'collidingWith': 'Nothing' }),
+                new Attribute("Game", { 'index': -1, 'type': 'Player', 'active': true }),
                 new Attribute("Weapon", { 'rate': 5, 'power': 20 })
             ];
             var player = new Entity(playerComponents, playerAttributes);
             entities.addEntity(player);
         };
-        this.spawnEnemy = function (x, y) {
+        this.spawnEnemy = function (position, velocity, dimensions) {
             var enemyComponents = [
                 new EntityGraphics(),
                 new EntityPhysics(),
+                new EntityCollision(),
                 new EnemyAI()
             ];
             var enemyAttributes = [
-                new Attribute("Transform", { 'x': x, 'y': y, 'w': 15, 'h': 15 }),
+                new Attribute("Transform", { 'position': position, 'dimensions': dimensions }),
                 new Attribute("Sprite", { 'color': "red" }),
-                new Attribute("Physics", { 'dx': 0, 'dy': 0, 'acceleration': 2, 'drag': 1, 'terminalVelocity': 20 }),
-                new Attribute("Game", { 'type': 'Enemy', 'active': true })
+                new Attribute("Physics", { 'velocity': velocity, 'acceleration': 2, 'drag': 1, 'terminalVelocity': 20 }),
+                new Attribute("Collision", { 'collidingWith': 'Nothing' }),
+                new Attribute("Game", { 'index': -1, 'type': 'Enemy', 'active': true })
             ];
             var enemy = new Entity(enemyComponents, enemyAttributes);
             entities.addEntity(enemy);
         };
-        this.spawnBullet = function (x, y, dx, dy) {
+        this.spawnBullet = function (position, velocity, dimensions) {
             var bulletComponents = [
                 new EntityGraphics(),
                 new EntityPhysics(),
+                new EntityCollision(),
                 new BulletAI()
             ];
             var bulletAttributes = [
-                new Attribute("Transform", { 'x': x, 'y': y, 'w': 5, 'h': 5 }),
+                new Attribute("Transform", { 'position': position, dimensions: dimensions }),
                 new Attribute("Sprite", { 'color': "black" }),
-                new Attribute("Physics", { 'dx': dx, 'dy': dy, 'acceleration': 0, 'drag': 1, 'terminalVelocity': 100 }),
-                new Attribute("Game", { 'type': 'Bullet', 'active': true })
+                new Attribute("Physics", { 'velocity': velocity, 'acceleration': 0, 'drag': 1, 'terminalVelocity': 100 }),
+                new Attribute("Collision", { 'collidingWith': 'Nothing' }),
+                new Attribute("Game", { 'index': -1, 'type': 'Bullet', 'active': true })
             ];
             var bullet = new Entity(bulletComponents, bulletAttributes);
             entities.addEntity(bullet);
         };
         this.id = "Game";
+        this.score = 0;
+        this.currentScore = 0;
         this.spawnTimer = 0;
+        this.maxTimer = 25;
     }
     return GameSystem;
 }());
@@ -207,9 +301,9 @@ var EntityGraphics = (function () {
         this.update = function (attribute) {
             var transform = attribute["Transform"];
             var sprite = attribute["Sprite"];
-            var ctxt = systems.system["Graphics"].canvasContext;
+            var ctxt = systems.getSystem("Graphics").canvasContext;
             ctxt.fillStyle = sprite.val['color'];
-            ctxt.fillRect(transform.val['x'], transform.val['y'], transform.val['w'], transform.val['h']);
+            ctxt.fillRect(transform.val['position'].x, transform.val['position'].y, transform.val['dimensions'].x, transform.val['dimensions'].y);
         };
         this.id = "Graphics";
     }
@@ -221,27 +315,58 @@ var EntityPhysics = (function () {
         this.update = function (attribute) {
             var transform = attribute["Transform"];
             var physics = attribute["Physics"];
-            if (Math.abs(physics.val['dx']) > physics.val['terminalVelocity'])
-                physics.val['dx'] = physics.val['terminalVelocity'] * sign(physics.val['dx']);
-            if (Math.abs(physics.val['dy']) > physics.val['terminalVelocity'])
-                physics.val['dy'] = physics.val['terminalVelocity'] * sign(physics.val['dy']);
-            transform.val['x'] += physics.val['dx'];
-            transform.val['y'] += physics.val['dy'];
-            if (Math.abs(physics.val['dx']) > 0)
-                physics.val['dx'] -= physics.val['drag'] * sign(physics.val['dx']);
-            if (Math.abs(physics.val['dy']) > 0)
-                physics.val['dy'] -= physics.val['drag'] * sign(physics.val['dy']);
+            if (physics.val['velocity'].magnitude() > physics.val['terminalVelocity']) {
+                physics.val['velocity'].setMagnitude(physics.val['terminalVelocity']);
+            }
+            transform.val['position'].add(physics.val['velocity']);
+            var magnitude = physics.val['velocity'].magnitude();
+            if (magnitude > 0) {
+                if (magnitude < physics.val['drag'])
+                    physics.val['velocity'].zero();
+                else
+                    physics.val['velocity'].setMagnitude(magnitude - physics.val['drag']);
+            }
         };
         this.id = "Physics";
     }
     return EntityPhysics;
 }());
+var EntityCollision = (function () {
+    function EntityCollision() {
+        this.id = "";
+        this.update = function (attribute) {
+            var entityList = entities.entity;
+            for (var key in entityList) {
+                if (key == attribute["Game"].val['index'])
+                    continue;
+                if (attribute["Collision"].val['collidingWith'] !== 'Nothing')
+                    return;
+                var collideWith = {};
+                collideWith['position'] = entityList[key].attribute["Transform"].val['position'];
+                collideWith['dimensions'] = entityList[key].attribute["Transform"].val['dimensions'];
+                var dimensions = new Vector(0, 0);
+                dimensions.add(collideWith['dimensions']);
+                dimensions.add(attribute["Transform"].val['dimensions']);
+                dimensions.multiply(0.5);
+                var difference = new Vector(0, 0);
+                difference.copy(collideWith['position']);
+                difference.subtract(attribute["Transform"].val['position']);
+                difference.x = Math.abs(difference.x);
+                difference.y = Math.abs(difference.y);
+                if (difference.x < dimensions.x && difference.y < dimensions.y) {
+                    attribute["Collision"].val['collidingWith'] = entityList[key].attribute["Game"].val['type'];
+                    entityList[key].attribute["Collision"].val['collidingWith'] = attribute["Game"].val['type'];
+                }
+            }
+        };
+        this.id = "Collision";
+    }
+    return EntityCollision;
+}());
 var PlayerInput = (function () {
     function PlayerInput() {
         var _this = this;
         this.id = "";
-        this.lastDx = 1;
-        this.lastDy = 0;
         this.update = function (attribute) {
             _this.physics = attribute["Physics"];
             _this.transform = attribute["Transform"];
@@ -249,44 +374,43 @@ var PlayerInput = (function () {
             _this.cooldown++;
         };
         this.left = function () {
-            if (_this.physics.val['dx'] > 0)
-                _this.physics.val['dx'] = 0;
-            _this.physics.val['dx'] -= _this.physics.val['acceleration'];
+            if (_this.physics.val['velocity'].x > 0)
+                _this.physics.val['velocity'].x = 0;
+            _this.physics.val['velocity'].x -= _this.physics.val['acceleration'];
         };
         this.up = function () {
-            if (_this.physics.val['dy'] > 0)
-                _this.physics.val['dy'] = 0;
-            _this.physics.val['dy'] -= _this.physics.val['acceleration'];
+            if (_this.physics.val['velocity'].y > 0)
+                _this.physics.val['velocity'].y = 0;
+            _this.physics.val['velocity'].y -= _this.physics.val['acceleration'];
         };
         this.down = function () {
-            if (_this.physics.val['dy'] < 0)
-                _this.physics.val['dy'] = 0;
-            _this.physics.val['dy'] += _this.physics.val['acceleration'];
+            if (_this.physics.val['velocity'].y < 0)
+                _this.physics.val['velocity'].y = 0;
+            _this.physics.val['velocity'].y += _this.physics.val['acceleration'];
         };
         this.right = function () {
-            if (_this.physics.val['dx'] < 0)
-                _this.physics.val['dx'] = 0;
-            _this.physics.val['dx'] += _this.physics.val['acceleration'];
+            if (_this.physics.val['velocity'].x < 0)
+                _this.physics.val['velocity'].x = 0;
+            _this.physics.val['velocity'].x += _this.physics.val['acceleration'];
         };
         this.fire = function () {
+            var orientation = new Vector(0, 0);
             if (_this.cooldown >= _this.weapon.val['rate']) {
-                var dx = _this.physics.val['dx'];
-                var dy = _this.physics.val['dy'];
-                if (dx == 0 && dy == 0) {
-                    dx = _this.lastDx;
-                    dy = _this.lastDy;
+                orientation.copy(_this.physics.val['velocity']);
+                if (orientation.magnitude() == 0) {
+                    orientation.copy(_this.lastOrientation);
                 }
-                dx = -sign(dx) * _this.weapon.val['power'];
-                dy = -sign(dy) * _this.weapon.val['power'];
-                _this.lastDx = dx;
-                _this.lastDy = dy;
-                systems.system["Game"].spawnBullet(_this.transform.val['x'], _this.transform.val['y'], dx, dy);
+                orientation.normalize().multiply(-_this.weapon.val['power']);
+                _this.lastOrientation.copy(orientation);
+                var position = _this.transform.val['position'];
+                systems.getSystem("Game").spawnBullet(new Vector(position.x, position.y), orientation, new Vector(5, 5));
                 _this.cooldown = 0;
             }
         };
         this.id = "Input";
         this.cooldown = 0;
-        var inputSystem = systems.system["Input"];
+        this.lastOrientation = new Vector(1, 0);
+        var inputSystem = systems.getSystem("Input");
         inputSystem.addKeycodeCallback(65, this.left);
         inputSystem.addKeycodeCallback(87, this.up);
         inputSystem.addKeycodeCallback(83, this.down);
@@ -302,14 +426,22 @@ var EnemyAI = (function () {
             var player = entities.getPlayer();
             var playerTransform = player.attribute["Transform"].val;
             var enemyPhysics = attribute["Physics"].val;
-            if (playerTransform['x'] < attribute["Transform"].val['x'])
-                enemyPhysics['dx'] -= enemyPhysics['acceleration'];
-            if (playerTransform['x'] > attribute["Transform"].val['x'])
-                enemyPhysics['dx'] += enemyPhysics['acceleration'];
-            if (playerTransform['y'] < attribute["Transform"].val['y'])
-                enemyPhysics['dy'] -= enemyPhysics['acceleration'];
-            if (playerTransform['y'] > attribute["Transform"].val['y'])
-                enemyPhysics['dy'] += enemyPhysics['acceleration'];
+            if (playerTransform['position'].x < attribute["Transform"].val['position'].x)
+                enemyPhysics['velocity'].x -= enemyPhysics['acceleration'];
+            if (playerTransform['position'].x > attribute["Transform"].val['position'].x)
+                enemyPhysics['velocity'].x += enemyPhysics['acceleration'];
+            if (playerTransform['position'].y < attribute["Transform"].val['position'].y)
+                enemyPhysics['velocity'].y -= enemyPhysics['acceleration'];
+            if (playerTransform['position'].y > attribute["Transform"].val['position'].y)
+                enemyPhysics['velocity'].y += enemyPhysics['acceleration'];
+            if (attribute["Collision"].val['collidingWith'] === 'Bullet') {
+                systems.getSystem("Game").addScore(5);
+                attribute["Game"].val['active'] = false;
+            }
+            else if (attribute["Collision"].val['collidingWith'] === 'Player') {
+                systems.getSystem("Game").reduceScore(20);
+                attribute["Game"].val['active'] = false;
+            }
         };
         this.id = "AI";
     }
@@ -317,21 +449,16 @@ var EnemyAI = (function () {
 }());
 var BulletAI = (function () {
     function BulletAI() {
+        this.id = "";
         this.update = function (attribute) {
-            if (attribute["Physics"].val['dx'] == 0 && attribute["Physics"].val['dy'] == 0)
+            if (attribute["Physics"].val['velocity'].magnitude() == 0)
+                attribute["Game"].val['active'] = false;
+            if (attribute["Collision"].val['collidingWith'] === 'Enemy')
                 attribute["Game"].val['active'] = false;
         };
         this.id = "AI";
     }
     return BulletAI;
-}());
-var EntityCollision = (function () {
-    function EntityCollision() {
-        this.update = function (attribtue) {
-        };
-        this.id = "Collision";
-    }
-    return EntityCollision;
 }());
 var Attribute = (function () {
     function Attribute(id, val) {
@@ -346,7 +473,7 @@ var Entity = (function () {
     function Entity(components, attributes) {
         var _this = this;
         this.init = function (index) {
-            _this.index = index;
+            _this.attribute["Game"].val['index'] = index;
         };
         this.update = function () {
             if (!_this.attribute["Game"].val['active']) {
@@ -358,7 +485,7 @@ var Entity = (function () {
             }
         };
         this.finit = function () {
-            entities.removeEntity(_this.index);
+            entities.removeEntity(_this.attribute["Game"].val['index']);
         };
         this.component = {};
         for (var key in components) {
