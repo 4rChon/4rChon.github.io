@@ -1,0 +1,1 @@
+﻿/// <reference path="/Scripts/require.min.js" start-page="/index.html" />
