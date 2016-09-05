@@ -2,7 +2,6 @@ define("Attribute/Attribute", ["require", "exports"], function (require, exports
     "use strict";
     var Attribute = (function () {
         function Attribute(id, val) {
-            this.id = "";
             this.val = {};
             this.id = id;
             this.val = val;
@@ -25,12 +24,16 @@ define("Component/BulletAI", ["require", "exports"], function (require, exports)
     "use strict";
     var BulletAI = (function () {
         function BulletAI() {
-            this.id = "";
             this.update = function (attribute) {
-                if (attribute["Physics"].val['velocity'].magnitude() == 0)
-                    attribute["Game"].val['active'] = false;
-                if (attribute["Collision"].val['collidingWith'] === 'Enemy')
-                    attribute["Game"].val['active'] = false;
+                if (attribute["Physics"].val["velocity"].magnitude() <= 1)
+                    attribute["Game"].val["active"] = false;
+                var collisionList = attribute["Collision"].val["collidingWith"];
+                for (var key in collisionList) {
+                    if (collisionList[key].attribute["type"] === "Enemy") {
+                        attribute["Game"].val["active"] = false;
+                        return;
+                    }
+                }
             };
             this.id = "AI";
         }
@@ -60,9 +63,14 @@ define("Util/Util", ["require", "exports"], function (require, exports) {
                 return Math.sqrt(_this.x * _this.x + _this.y * _this.y);
             };
             this.setMagnitude = function (magnitude) {
-                var angle = _this.getAngle();
-                _this.x = magnitude * Math.cos(angle);
-                _this.y = magnitude * Math.sin(angle);
+                if (magnitude == 0)
+                    _this.zero();
+                else {
+                    var ratio = magnitude / _this.magnitude();
+                    console.log("Ratio: ", magnitude, "/", _this.magnitude(), " = ", ratio);
+                }
+                //this.x *= ratio;//magnitude * Math.cos(angle) * sign(this.x);
+                //this.y *= ratio;//magnitude * Math.sin(angle) * sign(this.y);
             };
             this.magSq = function () {
                 return _this.x * _this.x + _this.y * _this.y;
@@ -81,6 +89,9 @@ define("Util/Util", ["require", "exports"], function (require, exports) {
                 _this.x = v.x;
                 _this.y = v.y;
             };
+            this.getCopy = function () {
+                return new Vector(_this.x, _this.y);
+            };
             this.rotate = function (radians) {
                 var cos = Math.cos(radians);
                 var sin = Math.sin(radians);
@@ -89,8 +100,22 @@ define("Util/Util", ["require", "exports"], function (require, exports) {
                 _this.x = x;
                 _this.y = y;
             };
+            this.getRotate = function (radians) {
+                var cos = Math.cos(radians);
+                var sin = Math.sin(radians);
+                var x = (cos * _this.x) + (sin * _this.y);
+                var y = (cos * _this.y) - (sin * _this.x);
+                return new Vector(x, y);
+            };
             this.getAngle = function () {
-                return Math.atan2(_this.y, _this.x);
+                var angle = Math.atan2(_this.y, _this.x);
+                return angle;
+                //if (this.x > 0 && this.y > 0)
+                //    return angle;
+                //if (this.x < 0 && this.y > 0)
+                //    return (Math.PI * 4) + angle;
+                //else
+                //    return Math.PI * 2 + angle;
             };
             this.multiply = function (value) {
                 _this.x *= value;
@@ -110,10 +135,22 @@ define("Util/Util", ["require", "exports"], function (require, exports) {
         return Vector;
     }());
     exports.Vector = Vector;
-    function sign(x) {
-        return typeof x === 'number' ? x ? x < 0 ? -1 : 1 : x === x ? 0 : NaN : NaN;
-    }
+    var sign = function (x) {
+        return typeof x === "number" ? x ? x < 0 ? -1 : 1 : x === x ? 0 : NaN : NaN;
+    };
     exports.sign = sign;
+    var add = function (v1, v2) {
+        return new Vector(v1.x + v2.x, v1.y + v2.y);
+    };
+    exports.add = add;
+    var multiply = function (v, value) {
+        return new Vector(v.x * value, v.y * value);
+    };
+    exports.multiply = multiply;
+    var subtract = function (v1, v2) {
+        return new Vector(v1.x - v2.x, v1.y - v2.y);
+    };
+    exports.subtract = subtract;
 });
 define("System/GameSystem", ["require", "exports", "System/System", "Globals", "Util/Util", "Attribute/package", "Component/package", "Entity/package"], function (require, exports, System_1, Globals_1, Util_1, package_1, package_2, package_3) {
     "use strict";
@@ -140,7 +177,7 @@ define("System/GameSystem", ["require", "exports", "System/System", "Globals", "
                 _this.spawnTimer = 0;
                 _this.spawnAmount = 1;
                 _this.spawnTimerMax = 25;
-                _this.spawnPlayer(new Util_1.Vector(Globals_1.WIDTH / 2, Globals_1.HEIGHT / 2), new Util_1.Vector(0, 0), new Util_1.Vector(10, 10));
+                _this.spawnPlayer(new Util_1.Vector(Globals_1.WIDTH / 2, Globals_1.HEIGHT / 2), new Util_1.Vector(0, 0), new Util_1.Vector(0, 0), new Util_1.Vector(10, 10));
             };
             this.update = function () {
                 _this.state = System_1.SystemState.Update;
@@ -156,7 +193,7 @@ define("System/GameSystem", ["require", "exports", "System/System", "Globals", "
                     for (var i = 0; i < _this.spawnAmount; i++) {
                         var x = Math.floor((Math.random() * Globals_1.WIDTH) + 1);
                         var y = Math.floor((Math.random() * Globals_1.HEIGHT) + 1);
-                        _this.spawnEnemy(new Util_1.Vector(x, y), new Util_1.Vector(0, 0), new Util_1.Vector(15, 15));
+                        _this.spawnEnemy(new Util_1.Vector(x, y), new Util_1.Vector(0, 0), new Util_1.Vector(0, 0), new Util_1.Vector(15, 15));
                         _this.spawnTimer = 0;
                     }
                 }
@@ -184,14 +221,14 @@ define("System/GameSystem", ["require", "exports", "System/System", "Globals", "
                     console.log("Not enough score");
                     return;
                 }
-                var weapon = Globals_1.entities.getPlayer().attribute['Weapon'];
+                var weapon = Globals_1.entities.getPlayer().attribute["Weapon"];
                 _this.score -= _this.weaponPowerCost;
                 _this.weaponPowerCost += 25;
-                weapon.val['power']++;
+                weapon.val["power"]++;
             };
             this.upgradeCooldown = function () {
-                var weapon = Globals_1.entities.getPlayer().attribute['Weapon'];
-                if (weapon.val['cooldown'] == 1) {
+                var weapon = Globals_1.entities.getPlayer().attribute["Weapon"];
+                if (weapon.val["cooldown"] === 1) {
                     console.log("Already at minimum cooldown");
                     return;
                 }
@@ -201,7 +238,7 @@ define("System/GameSystem", ["require", "exports", "System/System", "Globals", "
                 }
                 _this.score -= _this.weaponRateCost;
                 _this.weaponRateCost += 50;
-                weapon.val['cooldown']--;
+                weapon.val["cooldown"]--;
             };
             this.upgradeSpawnRate = function () {
                 if (_this.score < _this.spawnTimerCost) {
@@ -223,60 +260,60 @@ define("System/GameSystem", ["require", "exports", "System/System", "Globals", "
                 _this.spawnAmountCost *= 2;
                 _this.spawnAmount++;
             };
-            this.spawnPlayer = function (position, velocity, dimensions) {
+            this.spawnPlayer = function (position, velocity, force, dimensions) {
                 var playerComponents = [
-                    new package_2.EntityGraphics(),
                     new package_2.EntityPhysics(),
-                    new package_2.EntityCollision(),
                     new package_2.PlayerInput(),
-                    new package_2.PlayerAI()
+                    new package_2.PlayerAI(),
+                    new package_2.EntityCollision(),
+                    new package_2.EntityGraphics()
                 ];
                 var playerAttributes = [
-                    new package_1.Attribute("Transform", { 'position': position, 'dimensions': dimensions }),
-                    new package_1.Attribute("Sprite", { 'color': "black" }),
-                    new package_1.Attribute("Physics", { 'velocity': velocity, 'acceleration': 3, 'drag': 1, 'terminalVelocity': 15 }),
-                    new package_1.Attribute("Collision", { 'collidingWith': 'Nothing' }),
-                    new package_1.Attribute("Game", { 'index': -1, 'type': 'Player', 'active': true }),
-                    new package_1.Attribute("Weapon", { 'cooldown': 10, 'power': 20 })
+                    new package_1.Attribute("Game", { "index": -1, "type": "Player", "active": true }),
+                    new package_1.Attribute("Transform", { "position": position, "dimensions": dimensions }),
+                    new package_1.Attribute("Sprite", { "color": "black" }),
+                    new package_1.Attribute("Physics", { "mass": 10, "velocity": velocity, "force": force, "power": 8, "acceleration": 0, "drag": 1 }),
+                    new package_1.Attribute("Collision", { "collidingWith": {} }),
+                    new package_1.Attribute("Weapon", { "cooldown": 5, "power": 20 })
                 ];
                 var player = new package_3.Entity(playerComponents, playerAttributes);
                 Globals_1.entities.addEntity(player);
             };
-            this.spawnEnemy = function (position, velocity, dimensions) {
+            this.spawnEnemy = function (position, velocity, force, dimensions) {
                 var enemyComponents = [
-                    new package_2.EntityGraphics(),
                     new package_2.EntityPhysics(),
+                    new package_2.EnemyAI(),
                     new package_2.EntityCollision(),
-                    new package_2.EnemyAI()
+                    new package_2.EntityGraphics()
                 ];
                 var enemyAttributes = [
-                    new package_1.Attribute("Transform", { 'position': position, 'dimensions': dimensions }),
-                    new package_1.Attribute("Sprite", { 'color': "red" }),
-                    new package_1.Attribute("Physics", { 'velocity': velocity, 'acceleration': 2, 'drag': 1, 'terminalVelocity': 20 }),
-                    new package_1.Attribute("Collision", { 'collidingWith': 'Nothing' }),
-                    new package_1.Attribute("Game", { 'index': -1, 'type': 'Enemy', 'active': true })
+                    new package_1.Attribute("Game", { "index": -1, "type": "Enemy", "active": true }),
+                    new package_1.Attribute("Transform", { "position": position, "dimensions": dimensions }),
+                    new package_1.Attribute("Sprite", { "color": "red" }),
+                    new package_1.Attribute("Physics", { "mass": 10, "velocity": velocity, "force": force, "power": 4, "acceleration": 0, "drag": 1 }),
+                    new package_1.Attribute("Collision", { "collidingWith": {} })
                 ];
                 var enemy = new package_3.Entity(enemyComponents, enemyAttributes);
                 Globals_1.entities.addEntity(enemy);
             };
-            this.spawnBullet = function (position, velocity, dimensions) {
+            this.spawnBullet = function (position, velocity, force, dimensions) {
                 var bulletComponents = [
-                    new package_2.EntityGraphics(),
                     new package_2.EntityPhysics(),
+                    new package_2.BulletAI(),
                     new package_2.EntityCollision(),
-                    new package_2.BulletAI()
+                    new package_2.EntityGraphics()
                 ];
                 var bulletAttributes = [
-                    new package_1.Attribute("Transform", { 'position': position, dimensions: dimensions }),
-                    new package_1.Attribute("Sprite", { 'color': "black" }),
-                    new package_1.Attribute("Physics", { 'velocity': velocity, 'acceleration': 0, 'drag': 1, 'terminalVelocity': 100 }),
-                    new package_1.Attribute("Collision", { 'collidingWith': 'Nothing' }),
-                    new package_1.Attribute("Game", { 'index': -1, 'type': 'Bullet', 'active': true })
+                    new package_1.Attribute("Game", { "index": -1, "type": "Bullet", "active": true }),
+                    new package_1.Attribute("Transform", { "position": position, dimensions: dimensions }),
+                    new package_1.Attribute("Sprite", { "color": "black" }),
+                    new package_1.Attribute("Physics", { "mass": 2, "velocity": velocity, "force": force, "power": 0, "acceleration": 0, "drag": 5 }),
+                    new package_1.Attribute("Collision", { "collidingWith": {} })
                 ];
                 var bullet = new package_3.Entity(bulletComponents, bulletAttributes);
                 Globals_1.entities.addEntity(bullet);
             };
-            this.id = 'Game';
+            this.id = "Game";
             this.state = System_1.SystemState.None;
         }
         return GameSystem;
@@ -288,7 +325,6 @@ define("System/GraphicsSystem", ["require", "exports", "System/System", "Globals
     var GraphicsSystem = (function () {
         function GraphicsSystem() {
             var _this = this;
-            this.id = "";
             this.init = function () {
                 _this.state = System_2.SystemState.Init;
                 var canvas = document.createElement("canvas");
@@ -317,39 +353,39 @@ define("System/GraphicsSystem", ["require", "exports", "System/System", "Globals
                 _this.canvasContext.fillStyle = "#eee";
                 _this.canvasContext.font = "400px Arial";
                 _this.canvasContext.textAlign = "center";
-                _this.canvasContext.fillText("" + Globals_2.systems.getSystem('Game').getCurrentScore(), Globals_2.WIDTH / 2, Globals_2.HEIGHT / 2);
+                _this.canvasContext.fillText("" + Globals_2.systems.getSystem("Game").getCurrentScore(), Globals_2.WIDTH / 2, Globals_2.HEIGHT / 2);
             };
             this.renderCooldown = function () {
                 _this.canvasContext.fillStyle = "#999";
                 _this.canvasContext.font = "15px Arial";
                 _this.canvasContext.fillText("y", 50, 50);
                 _this.canvasContext.fillText("+", 70, 50);
-                _this.canvasContext.fillText("-" + Globals_2.entities.getPlayer().attribute['Weapon'].val['cooldown'], 90, 50);
-                _this.canvasContext.fillText("(" + Globals_2.systems.getSystem('Game').weaponRateCost + ')', 130, 50);
+                _this.canvasContext.fillText("-" + Globals_2.entities.getPlayer().attribute["Weapon"].val["cooldown"], 90, 50);
+                _this.canvasContext.fillText("(" + Globals_2.systems.getSystem("Game").weaponRateCost + ")", 130, 50);
             };
             this.renderPower = function () {
                 _this.canvasContext.fillStyle = "#999";
                 _this.canvasContext.font = "15px Arial";
                 _this.canvasContext.fillText("u", 50, 100);
                 _this.canvasContext.fillText("+", 70, 100);
-                _this.canvasContext.fillText("*" + Globals_2.entities.getPlayer().attribute['Weapon'].val['power'], 90, 100);
-                _this.canvasContext.fillText("(" + Globals_2.systems.getSystem('Game').weaponPowerCost + ')', 130, 100);
+                _this.canvasContext.fillText("*" + Globals_2.entities.getPlayer().attribute["Weapon"].val["power"], 90, 100);
+                _this.canvasContext.fillText("(" + Globals_2.systems.getSystem("Game").weaponPowerCost + ")", 130, 100);
             };
             this.renderSpawnRate = function () {
                 _this.canvasContext.fillStyle = "#999";
                 _this.canvasContext.font = "15px Arial";
                 _this.canvasContext.fillText("i", 50, 150);
                 _this.canvasContext.fillText("+", 70, 150);
-                _this.canvasContext.fillText("/" + Globals_2.systems.getSystem('Game').spawnTimerMax, 90, 150);
-                _this.canvasContext.fillText("(" + Globals_2.systems.getSystem('Game').spawnTimerCost + ')', 130, 150);
+                _this.canvasContext.fillText("/" + Globals_2.systems.getSystem("Game").spawnTimerMax, 90, 150);
+                _this.canvasContext.fillText("(" + Globals_2.systems.getSystem("Game").spawnTimerCost + ")", 130, 150);
             };
             this.renderSpawnAmount = function () {
                 _this.canvasContext.fillStyle = "#999";
                 _this.canvasContext.font = "15px Arial";
                 _this.canvasContext.fillText("o", 50, 200);
                 _this.canvasContext.fillText("+", 70, 200);
-                _this.canvasContext.fillText("x" + Globals_2.systems.getSystem('Game').spawnAmount, 90, 200);
-                _this.canvasContext.fillText("(" + Globals_2.systems.getSystem('Game').spawnAmountCost + ')', 130, 200);
+                _this.canvasContext.fillText("x" + Globals_2.systems.getSystem("Game").spawnAmount, 90, 200);
+                _this.canvasContext.fillText("(" + Globals_2.systems.getSystem("Game").spawnAmountCost + ")", 130, 200);
             };
             this.id = "Graphics";
             this.state = System_2.SystemState.None;
@@ -367,14 +403,14 @@ define("System/InputSystem", ["require", "exports", "System/System"], function (
             this.keyDown = {};
             this.init = function () {
                 _this.state = System_3.SystemState.Init;
-                document.addEventListener('keydown', _this.keyboardDown);
-                document.addEventListener('keyup', _this.keyboardUp);
+                document.addEventListener("keydown", _this.keyboardDown);
+                document.addEventListener("keyup", _this.keyboardUp);
             };
             this.update = function () {
                 _this.state = System_3.SystemState.Update;
                 for (var key in _this.keyDown) {
-                    var is_down = _this.keyDown[key];
-                    if (is_down) {
+                    var isDown = _this.keyDown[key];
+                    if (isDown) {
                         var callback = _this.keyCallback[key];
                         if (callback != null) {
                             callback();
@@ -396,28 +432,49 @@ define("System/InputSystem", ["require", "exports", "System/System"], function (
                 _this.keyCallback[keycode] = f;
                 _this.keyDown[keycode] = false;
             };
-            this.id = 'Input';
+            this.id = "Input";
             this.state = System_3.SystemState.None;
         }
         return InputSystem;
     }());
     exports.InputSystem = InputSystem;
 });
-define("System/PhysicsSystem", ["require", "exports", "System/System"], function (require, exports, System_4) {
+define("System/PhysicsSystem", ["require", "exports", "System/System", "Util/Util"], function (require, exports, System_4, Util_2) {
     "use strict";
     var PhysicsSystem = (function () {
         function PhysicsSystem() {
             var _this = this;
             this.init = function () {
                 _this.state = System_4.SystemState.Init;
+                _this.t = 0;
+                _this.dt = 16;
+                _this.currentTime = Date.now();
+                _this.remainingTime = 0;
+                _this.frameCount = 0;
             };
             this.update = function () {
                 _this.state = System_4.SystemState.Update;
+                var newTime = Date.now();
+                var frameTime = newTime - _this.currentTime;
+                if (frameTime > 17) {
+                    frameTime = 17;
+                }
+                _this.currentTime = newTime;
+                _this.updateCount = frameTime / _this.dt;
             };
             this.finit = function () {
                 _this.state = System_4.SystemState.Finit;
             };
-            this.id = 'Physics';
+            this.calculateDrag = function (transform, physics) {
+                var dragCoeff = physics.val["drag"];
+                var fluidDensity = 0.001;
+                //F_d = 1/2 * p * v^2 * C_d * A
+                var drag = (1 / 2) * fluidDensity * dragCoeff * transform.val["dimensions"].x;
+                var dragX = drag * Math.pow(physics.val["velocity"].x, 2) * Util_2.sign(physics.val["velocity"].x);
+                var dragY = drag * Math.pow(physics.val["velocity"].y, 2) * Util_2.sign(physics.val["velocity"].y);
+                return new Util_2.Vector(dragX, dragY);
+            };
+            this.id = "Physics";
             this.state = System_4.SystemState.None;
         }
         return PhysicsSystem;
@@ -439,61 +496,72 @@ define("Component/EnemyAI", ["require", "exports", "Globals"], function (require
     "use strict";
     var EnemyAI = (function () {
         function EnemyAI() {
-            this.id = "";
+            var _this = this;
             this.update = function (attribute) {
                 var player = Globals_3.entities.getPlayer();
                 var playerTransform = player.attribute["Transform"].val;
                 var enemyPhysics = attribute["Physics"].val;
-                if (playerTransform['position'].x < attribute["Transform"].val['position'].x)
-                    enemyPhysics['velocity'].x -= enemyPhysics['acceleration'];
-                if (playerTransform['position'].x > attribute["Transform"].val['position'].x)
-                    enemyPhysics['velocity'].x += enemyPhysics['acceleration'];
-                if (playerTransform['position'].y < attribute["Transform"].val['position'].y)
-                    enemyPhysics['velocity'].y -= enemyPhysics['acceleration'];
-                if (playerTransform['position'].y > attribute["Transform"].val['position'].y)
-                    enemyPhysics['velocity'].y += enemyPhysics['acceleration'];
-                if (attribute["Collision"].val['collidingWith'] === 'Bullet') {
-                    Globals_3.systems.getSystem("Game").addScore(5);
-                    attribute["Game"].val['active'] = false;
-                }
-                else if (attribute["Collision"].val['collidingWith'] === 'Player') {
-                    Globals_3.systems.getSystem("Game").reduceScore(20);
-                    attribute["Game"].val['active'] = false;
+                if (playerTransform["position"].x < attribute["Transform"].val["position"].x)
+                    enemyPhysics["force"].x = -enemyPhysics["power"];
+                if (playerTransform["position"].x > attribute["Transform"].val["position"].x)
+                    enemyPhysics["force"].x = enemyPhysics["power"];
+                if (playerTransform["position"].y < attribute["Transform"].val["position"].y)
+                    enemyPhysics["force"].y = -enemyPhysics["power"];
+                if (playerTransform["position"].y > attribute["Transform"].val["position"].y)
+                    enemyPhysics["force"].y = enemyPhysics["power"];
+                var collisionList = attribute["Collision"].val["collidingWith"];
+                for (var key in collisionList) {
+                    if (key == attribute["Game"].val["index"])
+                        continue;
+                    var type = collisionList[key].attribute["Game"].val["type"];
+                    ////console.log(type);
+                    if (type === "Bullet") {
+                        _this.gameSystem.addScore(5);
+                        attribute["Game"].val["active"] = false;
+                        return;
+                    }
+                    if (type === "Player") {
+                        _this.gameSystem.reduceScore(20);
+                        attribute["Game"].val["active"] = false;
+                        return;
+                    }
+                    if (type === "Enemy") {
+                        _this.gameSystem.addScore(1);
+                        attribute["Game"].val["active"] = false;
+                        return;
+                    }
                 }
             };
             this.id = "AI";
+            this.gameSystem = Globals_3.systems.getSystem("Game");
         }
         return EnemyAI;
     }());
     exports.EnemyAI = EnemyAI;
 });
-define("Component/EntityCollision", ["require", "exports", "Globals", "Util/Util"], function (require, exports, Globals_4, Util_2) {
+define("Component/EntityCollision", ["require", "exports", "Globals", "Util/Util"], function (require, exports, Globals_4, Util_3) {
     "use strict";
     var EntityCollision = (function () {
         function EntityCollision() {
-            this.id = "";
             this.update = function (attribute) {
                 var entityList = Globals_4.entities.entity;
                 for (var key in entityList) {
-                    if (key == attribute["Game"].val['index'])
+                    if (key === attribute["Game"].val["index"])
                         continue;
-                    if (attribute["Collision"].val['collidingWith'] !== 'Nothing')
-                        return;
                     var collideWith = {};
-                    collideWith['position'] = entityList[key].attribute["Transform"].val['position'];
-                    collideWith['dimensions'] = entityList[key].attribute["Transform"].val['dimensions'];
-                    var dimensions = new Util_2.Vector(0, 0);
-                    dimensions.add(collideWith['dimensions']);
-                    dimensions.add(attribute["Transform"].val['dimensions']);
+                    collideWith["position"] = entityList[key].attribute["Transform"].val["position"];
+                    collideWith["dimensions"] = entityList[key].attribute["Transform"].val["dimensions"];
+                    var dimensions = new Util_3.Vector(0, 0);
+                    dimensions.add(collideWith["dimensions"]);
+                    dimensions.add(attribute["Transform"].val["dimensions"]);
                     dimensions.multiply(0.5);
-                    var difference = new Util_2.Vector(0, 0);
-                    difference.copy(collideWith['position']);
-                    difference.subtract(attribute["Transform"].val['position']);
+                    var difference = new Util_3.Vector(0, 0);
+                    difference.copy(collideWith["position"]);
+                    difference.subtract(attribute["Transform"].val["position"]);
                     difference.x = Math.abs(difference.x);
                     difference.y = Math.abs(difference.y);
                     if (difference.x < dimensions.x && difference.y < dimensions.y) {
-                        attribute["Collision"].val['collidingWith'] = entityList[key].attribute["Game"].val['type'];
-                        entityList[key].attribute["Collision"].val['collidingWith'] = attribute["Game"].val['type'];
+                        attribute["Collision"].val["collidingWith"][key] = entityList[key]; //.attribute["Game"].val["type"];
                     }
                 }
             };
@@ -507,122 +575,126 @@ define("Component/EntityGraphics", ["require", "exports", "Globals"], function (
     "use strict";
     var EntityGraphics = (function () {
         function EntityGraphics() {
-            this.id = "";
+            var _this = this;
             this.update = function (attribute) {
                 var transform = attribute["Transform"];
                 var sprite = attribute["Sprite"];
-                var ctxt = Globals_5.systems.getSystem("Graphics").canvasContext;
-                ctxt.fillStyle = sprite.val['color'];
-                ctxt.fillRect(transform.val['position'].x, transform.val['position'].y, transform.val['dimensions'].x, transform.val['dimensions'].y);
+                var ctxt = _this.graphicsSystem.canvasContext;
+                ctxt.fillStyle = sprite.val["color"];
+                ctxt.fillRect(transform.val["position"].x, transform.val["position"].y, transform.val["dimensions"].x, transform.val["dimensions"].y);
             };
             this.id = "Graphics";
+            this.graphicsSystem = Globals_5.systems.getSystem("Graphics");
         }
         return EntityGraphics;
     }());
     exports.EntityGraphics = EntityGraphics;
 });
-define("Component/EntityPhysics", ["require", "exports"], function (require, exports) {
+define("Component/EntityPhysics", ["require", "exports", "Globals", "Util/Util"], function (require, exports, Globals_6, Util_4) {
     "use strict";
     var EntityPhysics = (function () {
         function EntityPhysics() {
-            this.id = "";
+            var _this = this;
             this.update = function (attribute) {
-                var transform = attribute["Transform"];
-                var physics = attribute["Physics"];
-                if (physics.val['velocity'].magnitude() > physics.val['terminalVelocity']) {
-                    physics.val['velocity'].setMagnitude(physics.val['terminalVelocity']);
+                var currentTransform = attribute["Transform"];
+                var currentPhysics = attribute["Physics"];
+                if (attribute["Game"].val["type"] == "Bullet") {
+                    console.log("pos: ", currentTransform.val["position"].x, currentTransform.val["position"].y);
+                    console.log("vel: ", currentPhysics.val["velocity"].x, currentPhysics.val["velocity"].y);
+                    console.log("acc: ", currentPhysics.val["acceleration"].x, currentPhysics.val["acceleration"].y);
                 }
-                transform.val['position'].add(physics.val['velocity']);
-                var magnitude = physics.val['velocity'].magnitude();
-                if (magnitude > 0) {
-                    if (magnitude < physics.val['drag'])
-                        physics.val['velocity'].zero();
-                    else
-                        physics.val['velocity'].setMagnitude(magnitude - physics.val['drag']);
-                }
+                // a = F/m
+                currentPhysics.val["acceleration"] = Util_4.multiply(currentPhysics.val["force"], 1 / currentPhysics.val["mass"]);
+                var drag = _this.physicsSystem.calculateDrag(currentTransform, currentPhysics);
+                currentPhysics.val["acceleration"].x -= drag.x;
+                currentPhysics.val["acceleration"].y -= drag.y;
+                // v += a
+                currentPhysics.val["velocity"].add(currentPhysics.val["acceleration"]);
+                currentTransform.val["position"].add(Util_4.multiply(currentPhysics.val["velocity"], _this.physicsSystem.updateCount));
+                currentPhysics.val["force"].zero();
             };
             this.id = "Physics";
+            this.physicsSystem = Globals_6.systems.getSystem("Physics");
         }
         return EntityPhysics;
     }());
     exports.EntityPhysics = EntityPhysics;
 });
-define("Component/PlayerAI", ["require", "exports", "Globals", "Util/Util"], function (require, exports, Globals_6, Util_3) {
+define("Component/PlayerAI", ["require", "exports", "Globals", "Util/Util"], function (require, exports, Globals_7, Util_5) {
     "use strict";
     var PlayerAI = (function () {
         function PlayerAI() {
             var _this = this;
-            this.id = "";
             this.update = function (attribute) {
-                _this.physics = attribute['Physics'];
-                _this.transform = attribute['Transform'];
-                _this.weapon = attribute['Weapon'];
+                _this.physics = attribute["Physics"];
+                _this.transform = attribute["Transform"];
+                _this.weapon = attribute["Weapon"];
                 _this.cooldown++;
-                if (_this.cooldown >= _this.weapon.val['cooldown']) {
+                if (_this.cooldown >= _this.weapon.val["cooldown"]) {
                     _this.fire();
                     _this.cooldown = 0;
                 }
             };
             this.fire = function () {
-                var orientation = new Util_3.Vector(0, 0);
-                orientation.copy(_this.physics.val['velocity']);
-                if (orientation.magnitude() == 0) {
+                var orientation = new Util_5.Vector(0, 0);
+                orientation.copy(_this.physics.val["velocity"]);
+                if (orientation.magnitude() === 0) {
                     orientation.copy(_this.lastOrientation);
                 }
-                orientation.normalize().multiply(-_this.weapon.val['power']);
+                orientation.normalize().multiply(-_this.weapon.val["power"]);
                 _this.lastOrientation.copy(orientation);
-                var position = _this.transform.val['position'];
-                Globals_6.systems.getSystem("Game").spawnBullet(new Util_3.Vector(position.x, position.y), orientation, new Util_3.Vector(5, 5));
+                var position = _this.transform.val["position"];
+                _this.gameSystem.spawnBullet(new Util_5.Vector(position.x, position.y), new Util_5.Vector(0, 0), orientation, new Util_5.Vector(5, 5));
             };
             this.id = "AI";
+            this.gameSystem = Globals_7.systems.getSystem("Game");
             this.cooldown = 0;
-            this.lastOrientation = new Util_3.Vector(1, 0);
+            this.lastOrientation = new Util_5.Vector(1, 0);
         }
         return PlayerAI;
     }());
     exports.PlayerAI = PlayerAI;
 });
-define("Component/PlayerInput", ["require", "exports", "Globals"], function (require, exports, Globals_7) {
+define("Component/PlayerInput", ["require", "exports", "Globals"], function (require, exports, Globals_8) {
     "use strict";
     var PlayerInput = (function () {
         function PlayerInput() {
             var _this = this;
-            this.id = "";
             this.update = function (attribute) {
                 _this.physics = attribute["Physics"];
                 _this.transform = attribute["Transform"];
             };
             this.left = function () {
-                if (_this.physics.val['velocity'].x > 0)
-                    _this.physics.val['velocity'].x = 0;
-                _this.physics.val['velocity'].x -= _this.physics.val['acceleration'];
+                _this.physics.val["force"].x = -_this.physics.val["power"];
+                if (_this.physics.val["velocity"].x > 0)
+                    _this.physics.val["velocity"].x = 0;
             };
             this.up = function () {
-                if (_this.physics.val['velocity'].y > 0)
-                    _this.physics.val['velocity'].y = 0;
-                _this.physics.val['velocity'].y -= _this.physics.val['acceleration'];
+                _this.physics.val["force"].y = -_this.physics.val["power"];
+                if (_this.physics.val["velocity"].y > 0)
+                    _this.physics.val["velocity"].y = 0;
             };
             this.down = function () {
-                if (_this.physics.val['velocity'].y < 0)
-                    _this.physics.val['velocity'].y = 0;
-                _this.physics.val['velocity'].y += _this.physics.val['acceleration'];
+                _this.physics.val["force"].y = _this.physics.val["power"];
+                if (_this.physics.val["velocity"].y < 0)
+                    _this.physics.val["velocity"].y = 0;
             };
             this.right = function () {
-                if (_this.physics.val['velocity'].x < 0)
-                    _this.physics.val['velocity'].x = 0;
-                _this.physics.val['velocity'].x += _this.physics.val['acceleration'];
+                _this.physics.val["force"].x = _this.physics.val["power"];
+                if (_this.physics.val["velocity"].x < 0)
+                    _this.physics.val["velocity"].x = 0;
             };
             this.id = "Input";
-            var inputSystem = Globals_7.systems.getSystem("Input");
-            var gameSystem = Globals_7.systems.getSystem("Game");
-            inputSystem.addKeycodeCallback(65, this.left);
-            inputSystem.addKeycodeCallback(87, this.up);
-            inputSystem.addKeycodeCallback(83, this.down);
-            inputSystem.addKeycodeCallback(68, this.right);
-            inputSystem.addKeycodeCallback(89, gameSystem.upgradeCooldown);
-            inputSystem.addKeycodeCallback(85, gameSystem.upgradePower);
-            inputSystem.addKeycodeCallback(73, gameSystem.upgradeSpawnRate);
-            inputSystem.addKeycodeCallback(79, gameSystem.upgradeSpawnAmount);
+            this.inputSystem = Globals_8.systems.getSystem("Input");
+            this.gameSystem = Globals_8.systems.getSystem("Game");
+            this.inputSystem.addKeycodeCallback(65, this.left);
+            this.inputSystem.addKeycodeCallback(87, this.up);
+            this.inputSystem.addKeycodeCallback(83, this.down);
+            this.inputSystem.addKeycodeCallback(68, this.right);
+            this.inputSystem.addKeycodeCallback(89, this.gameSystem.upgradeCooldown);
+            this.inputSystem.addKeycodeCallback(85, this.gameSystem.upgradePower);
+            this.inputSystem.addKeycodeCallback(73, this.gameSystem.upgradeSpawnRate);
+            this.inputSystem.addKeycodeCallback(79, this.gameSystem.upgradeSpawnAmount);
         }
         return PlayerInput;
     }());
@@ -641,25 +713,26 @@ define("Component/package", ["require", "exports", "Component/BulletAI", "Compon
     __export(PlayerAI_1);
     __export(PlayerInput_1);
 });
-define("Entity/Entity", ["require", "exports", "Globals"], function (require, exports, Globals_8) {
+define("Entity/Entity", ["require", "exports", "Globals"], function (require, exports, Globals_9) {
     "use strict";
     var Entity = (function () {
         function Entity(components, attributes) {
             var _this = this;
             this.init = function (index) {
-                _this.attribute["Game"].val['index'] = index;
+                _this.attribute["Game"].val["index"] = index;
             };
             this.update = function () {
-                if (!_this.attribute["Game"].val['active']) {
+                if (!_this.attribute["Game"].val["active"]) {
                     _this.finit();
                     return;
                 }
                 for (var key in _this.component) {
+                    //if (key !== "Physics")
                     _this.component[key].update(_this.attribute);
                 }
             };
             this.finit = function () {
-                Globals_8.entities.removeEntity(_this.attribute["Game"].val['index']);
+                Globals_9.entities.removeEntity(_this.attribute["Game"].val["index"]);
             };
             this.component = {};
             for (var key in components) {
@@ -670,6 +743,12 @@ define("Entity/Entity", ["require", "exports", "Globals"], function (require, ex
                 this.attribute[attributes[key].id] = attributes[key];
             }
         }
+        Entity.prototype.hasComponent = function (name) {
+            return this.component.hasOwnProperty(name);
+        };
+        Entity.prototype.hasAttribute = function (name) {
+            return this.attribute.hasOwnProperty(name);
+        };
         return Entity;
     }());
     exports.Entity = Entity;
@@ -694,6 +773,14 @@ define("Context/EntityContext", ["require", "exports"], function (require, expor
             };
             this.getEntity = function (index) {
                 return _this.entity[index];
+            };
+            this.getEntitiesWithComponent = function (componentId) {
+                var entityList = [];
+                for (var key in _this.entity) {
+                    if (_this.entity[key].component.hasOwnProperty(componentId))
+                        entityList.push(_this.entity[key]);
+                }
+                return entityList;
             };
             this.getPlayer = function () {
                 return _this.player;
@@ -731,7 +818,7 @@ define("Context/SystemContext", ["require", "exports", "System/package"], functi
             };
             this.updateSystems = function () {
                 for (var key in _this.system) {
-                    if (_this.system[key].state == package_4.SystemState.None)
+                    if (_this.system[key].state === package_4.SystemState.None)
                         _this.system[key].init();
                     _this.system[key].update();
                 }
@@ -761,18 +848,18 @@ define("Globals", ["require", "exports", "Context/package"], function (require, 
     var entities = new package_5.EntityContext();
     exports.entities = entities;
 });
-define("main", ["require", "exports", "Globals", "System/package"], function (require, exports, Globals_9, package_6) {
+define("main", ["require", "exports", "Globals", "System/package"], function (require, exports, Globals_10, package_6) {
     "use strict";
     function gameLoop() {
         requestAnimationFrame(gameLoop);
-        Globals_9.systems.updateSystems();
-        Globals_9.entities.updateEntities();
+        Globals_10.systems.updateSystems();
+        Globals_10.entities.updateEntities();
     }
     window.onload = function () {
-        Globals_9.systems.addSystem(new package_6.PhysicsSystem());
-        Globals_9.systems.addSystem(new package_6.InputSystem());
-        Globals_9.systems.addSystem(new package_6.GameSystem());
-        Globals_9.systems.addSystem(new package_6.GraphicsSystem());
+        Globals_10.systems.addSystem(new package_6.PhysicsSystem());
+        Globals_10.systems.addSystem(new package_6.InputSystem());
+        Globals_10.systems.addSystem(new package_6.GameSystem());
+        Globals_10.systems.addSystem(new package_6.GraphicsSystem());
         gameLoop();
     };
 });
