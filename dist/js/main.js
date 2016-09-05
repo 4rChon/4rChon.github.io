@@ -598,11 +598,6 @@ define("Component/EntityPhysics", ["require", "exports", "Globals", "Util/Util"]
             this.update = function (attribute) {
                 var currentTransform = attribute["Transform"];
                 var currentPhysics = attribute["Physics"];
-                if (attribute["Game"].val["type"] == "Bullet") {
-                    console.log("pos: ", currentTransform.val["position"].x, currentTransform.val["position"].y);
-                    console.log("vel: ", currentPhysics.val["velocity"].x, currentPhysics.val["velocity"].y);
-                    console.log("acc: ", currentPhysics.val["acceleration"].x, currentPhysics.val["acceleration"].y);
-                }
                 // a = F/m
                 currentPhysics.val["acceleration"] = Util_4.multiply(currentPhysics.val["force"], 1 / currentPhysics.val["mass"]);
                 var drag = _this.physicsSystem.calculateDrag(currentTransform, currentPhysics);
@@ -855,12 +850,13 @@ define("main", ["require", "exports", "Globals", "System/package"], function (re
         Globals_10.systems.updateSystems();
         Globals_10.entities.updateEntities();
     }
-    window.onload = function () {
+    function main() {
         Globals_10.systems.addSystem(new package_6.PhysicsSystem());
         Globals_10.systems.addSystem(new package_6.InputSystem());
         Globals_10.systems.addSystem(new package_6.GameSystem());
         Globals_10.systems.addSystem(new package_6.GraphicsSystem());
         gameLoop();
-    };
+    }
+    main();
 });
 //# sourceMappingURL=main.js.map
