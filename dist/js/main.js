@@ -320,13 +320,13 @@ define("System/GameSystem", ["require", "exports", "System/System", "Globals", "
     }());
     exports.GameSystem = GameSystem;
 });
-define("System/GraphicsSystem", ["require", "exports", "System/System", "Globals"], function (require, exports, System_2, Globals_2) {
+define("System/GraphicsSystem", ["require", "exports", "System/package", "Globals"], function (require, exports, package_4, Globals_2) {
     "use strict";
     var GraphicsSystem = (function () {
         function GraphicsSystem() {
             var _this = this;
             this.init = function () {
-                _this.state = System_2.SystemState.Init;
+                _this.state = package_4.SystemState.Init;
                 var canvas = document.createElement("canvas");
                 canvas.width = Globals_2.WIDTH;
                 canvas.height = Globals_2.HEIGHT;
@@ -334,16 +334,18 @@ define("System/GraphicsSystem", ["require", "exports", "System/System", "Globals
                 _this.canvasContext = canvas.getContext("2d");
             };
             this.update = function () {
-                _this.state = System_2.SystemState.Update;
+                _this.state = package_4.SystemState.Update;
                 _this.clear();
                 _this.renderScore();
                 _this.renderCooldown();
                 _this.renderPower();
                 _this.renderSpawnRate();
                 _this.renderSpawnAmount();
+                _this.renderFPS();
+                _this.renderUPS();
             };
             this.finit = function () {
-                _this.state = System_2.SystemState.Finit;
+                _this.state = package_4.SystemState.Finit;
             };
             this.clear = function () {
                 _this.canvasContext.fillStyle = "white";
@@ -387,14 +389,24 @@ define("System/GraphicsSystem", ["require", "exports", "System/System", "Globals
                 _this.canvasContext.fillText("x" + Globals_2.systems.getSystem("Game").spawnAmount, 90, 200);
                 _this.canvasContext.fillText("(" + Globals_2.systems.getSystem("Game").spawnAmountCost + ")", 130, 200);
             };
+            this.renderFPS = function () {
+                _this.canvasContext.fillStyle = "#0F0";
+                _this.canvasContext.font = "15px Arial";
+                _this.canvasContext.fillText("FPS " + Math.round(Globals_2.systems.getSystem("Physics").fps * 100) / 100, Globals_2.WIDTH / 2, 50);
+            };
+            this.renderUPS = function () {
+                _this.canvasContext.fillStyle = "#0F0";
+                _this.canvasContext.font = "15px Arial";
+                _this.canvasContext.fillText("UPS " + Math.round(Globals_2.systems.getSystem("Physics").updateCount * 100) / 100, Globals_2.WIDTH / 2, 100);
+            };
             this.id = "Graphics";
-            this.state = System_2.SystemState.None;
+            this.state = package_4.SystemState.None;
         }
         return GraphicsSystem;
     }());
     exports.GraphicsSystem = GraphicsSystem;
 });
-define("System/InputSystem", ["require", "exports", "System/System"], function (require, exports, System_3) {
+define("System/InputSystem", ["require", "exports", "System/System"], function (require, exports, System_2) {
     "use strict";
     var InputSystem = (function () {
         function InputSystem() {
@@ -402,12 +414,12 @@ define("System/InputSystem", ["require", "exports", "System/System"], function (
             this.keyCallback = {};
             this.keyDown = {};
             this.init = function () {
-                _this.state = System_3.SystemState.Init;
+                _this.state = System_2.SystemState.Init;
                 document.addEventListener("keydown", _this.keyboardDown);
                 document.addEventListener("keyup", _this.keyboardUp);
             };
             this.update = function () {
-                _this.state = System_3.SystemState.Update;
+                _this.state = System_2.SystemState.Update;
                 for (var key in _this.keyDown) {
                     var isDown = _this.keyDown[key];
                     if (isDown) {
@@ -419,7 +431,7 @@ define("System/InputSystem", ["require", "exports", "System/System"], function (
                 }
             };
             this.finit = function () {
-                _this.state = System_3.SystemState.Finit;
+                _this.state = System_2.SystemState.Finit;
             };
             this.keyboardDown = function (event) {
                 event.preventDefault();
@@ -433,55 +445,54 @@ define("System/InputSystem", ["require", "exports", "System/System"], function (
                 _this.keyDown[keycode] = false;
             };
             this.id = "Input";
-            this.state = System_3.SystemState.None;
+            this.state = System_2.SystemState.None;
         }
         return InputSystem;
     }());
     exports.InputSystem = InputSystem;
 });
-define("System/PhysicsSystem", ["require", "exports", "System/System", "Util/Util"], function (require, exports, System_4, Util_2) {
+define("System/PhysicsSystem", ["require", "exports", "System/System", "Util/Util"], function (require, exports, System_3, Util_2) {
     "use strict";
     var PhysicsSystem = (function () {
         function PhysicsSystem() {
             var _this = this;
             this.init = function () {
-                _this.state = System_4.SystemState.Init;
+                _this.state = System_3.SystemState.Init;
                 _this.t = 0;
                 _this.dt = 16;
                 _this.currentTime = Date.now();
-                _this.remainingTime = 0;
-                _this.frameCount = 0;
             };
             this.update = function () {
-                _this.state = System_4.SystemState.Update;
+                _this.state = System_3.SystemState.Update;
                 var newTime = Date.now();
                 var frameTime = newTime - _this.currentTime;
-                if (frameTime > 17) {
-                    frameTime = 17;
-                }
                 _this.currentTime = newTime;
+                _this.t += frameTime;
+                _this.fps = 1000 / frameTime;
                 _this.updateCount = frameTime / _this.dt;
             };
             this.finit = function () {
-                _this.state = System_4.SystemState.Finit;
+                _this.state = System_3.SystemState.Finit;
             };
             this.calculateDrag = function (transform, physics) {
                 var dragCoeff = physics.val["drag"];
-                var fluidDensity = 0.001;
+                var fluidDensity = 0.002;
                 //F_d = 1/2 * p * v^2 * C_d * A
                 var drag = (1 / 2) * fluidDensity * dragCoeff * transform.val["dimensions"].x;
                 var dragX = drag * Math.pow(physics.val["velocity"].x, 2) * Util_2.sign(physics.val["velocity"].x);
                 var dragY = drag * Math.pow(physics.val["velocity"].y, 2) * Util_2.sign(physics.val["velocity"].y);
+                dragX = Math.abs(dragX) > 0 && Math.abs(dragX) < 0.2 ? 0.2 * Util_2.sign(dragX) : dragX;
+                dragY = Math.abs(dragY) > 0 && Math.abs(dragY) < 0.2 ? 0.2 * Util_2.sign(dragY) : dragY;
                 return new Util_2.Vector(dragX, dragY);
             };
             this.id = "Physics";
-            this.state = System_4.SystemState.None;
+            this.state = System_3.SystemState.None;
         }
         return PhysicsSystem;
     }());
     exports.PhysicsSystem = PhysicsSystem;
 });
-define("System/package", ["require", "exports", "System/GameSystem", "System/GraphicsSystem", "System/InputSystem", "System/PhysicsSystem", "System/System"], function (require, exports, GameSystem_1, GraphicsSystem_1, InputSystem_1, PhysicsSystem_1, System_5) {
+define("System/package", ["require", "exports", "System/GameSystem", "System/GraphicsSystem", "System/InputSystem", "System/PhysicsSystem", "System/System"], function (require, exports, GameSystem_1, GraphicsSystem_1, InputSystem_1, PhysicsSystem_1, System_4) {
     "use strict";
     function __export(m) {
         for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
@@ -490,7 +501,7 @@ define("System/package", ["require", "exports", "System/GameSystem", "System/Gra
     __export(GraphicsSystem_1);
     __export(InputSystem_1);
     __export(PhysicsSystem_1);
-    __export(System_5);
+    __export(System_4);
 });
 define("Component/EnemyAI", ["require", "exports", "Globals"], function (require, exports, Globals_3) {
     "use strict";
@@ -624,7 +635,7 @@ define("Component/PlayerAI", ["require", "exports", "Globals", "Util/Util"], fun
                 _this.physics = attribute["Physics"];
                 _this.transform = attribute["Transform"];
                 _this.weapon = attribute["Weapon"];
-                _this.cooldown++;
+                _this.cooldown += _this.physicsSystem.updateCount;
                 if (_this.cooldown >= _this.weapon.val["cooldown"]) {
                     _this.fire();
                     _this.cooldown = 0;
@@ -643,6 +654,7 @@ define("Component/PlayerAI", ["require", "exports", "Globals", "Util/Util"], fun
             };
             this.id = "AI";
             this.gameSystem = Globals_7.systems.getSystem("Game");
+            this.physicsSystem = Globals_7.systems.getSystem("Physics");
             this.cooldown = 0;
             this.lastOrientation = new Util_5.Vector(1, 0);
         }
@@ -795,7 +807,7 @@ define("Context/EntityContext", ["require", "exports"], function (require, expor
     }());
     exports.EntityContext = EntityContext;
 });
-define("Context/SystemContext", ["require", "exports", "System/package"], function (require, exports, package_4) {
+define("Context/SystemContext", ["require", "exports", "System/package"], function (require, exports, package_5) {
     "use strict";
     var SystemContext = (function () {
         function SystemContext() {
@@ -813,7 +825,7 @@ define("Context/SystemContext", ["require", "exports", "System/package"], functi
             };
             this.updateSystems = function () {
                 for (var key in _this.system) {
-                    if (_this.system[key].state === package_4.SystemState.None)
+                    if (_this.system[key].state === package_5.SystemState.None)
                         _this.system[key].init();
                     _this.system[key].update();
                 }
@@ -832,29 +844,29 @@ define("Context/package", ["require", "exports", "Context/EntityContext", "Conte
     __export(EntityContext_1);
     __export(SystemContext_1);
 });
-define("Globals", ["require", "exports", "Context/package"], function (require, exports, package_5) {
+define("Globals", ["require", "exports", "Context/package"], function (require, exports, package_6) {
     "use strict";
     var WIDTH = 1024;
     exports.WIDTH = WIDTH;
     var HEIGHT = 1024;
     exports.HEIGHT = HEIGHT;
-    var systems = new package_5.SystemContext();
+    var systems = new package_6.SystemContext();
     exports.systems = systems;
-    var entities = new package_5.EntityContext();
+    var entities = new package_6.EntityContext();
     exports.entities = entities;
 });
-define("main", ["require", "exports", "Globals", "System/package"], function (require, exports, Globals_10, package_6) {
+define("main", ["require", "exports", "Globals", "System/package"], function (require, exports, Globals_10, package_7) {
     "use strict";
     function gameLoop() {
         requestAnimationFrame(gameLoop);
         Globals_10.systems.updateSystems();
         Globals_10.entities.updateEntities();
-    }
+    } //
     function main() {
-        Globals_10.systems.addSystem(new package_6.PhysicsSystem());
-        Globals_10.systems.addSystem(new package_6.InputSystem());
-        Globals_10.systems.addSystem(new package_6.GameSystem());
-        Globals_10.systems.addSystem(new package_6.GraphicsSystem());
+        Globals_10.systems.addSystem(new package_7.PhysicsSystem());
+        Globals_10.systems.addSystem(new package_7.InputSystem());
+        Globals_10.systems.addSystem(new package_7.GameSystem());
+        Globals_10.systems.addSystem(new package_7.GraphicsSystem());
         gameLoop();
     }
     main();
