@@ -1,4 +1,4 @@
-﻿.page-header {
+.page-header {
     width: 100%;
     background-color: black;
     color: #eee;
@@ -15,11 +15,6 @@ body {
 
 a:hover {
     text-decoration: none;
-    color: #6a4701;
-}
-
-a {
-    color: #8a6721;
 }
 
 .media-object {

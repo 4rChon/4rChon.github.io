@@ -1,25 +1,5 @@
-﻿.page-header {
-    width: 100%;
-    background-color: black;
-    color: #eee;
-}
-
-body small {
-    color: #bbb;
-}
-
-body {
-    background-color: black;
-    color: #eee;
-}
-
 a:hover {
     text-decoration: none;
-    color: #6a4701;
-}
-
-a {
-    color: #8a6721;
 }
 
 .media-object {
