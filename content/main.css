@@ -16,10 +16,15 @@ h2 {
     border-bottom: solid 2px darkblue;
     border-radius: 0px 20px 20px 0px;
     padding-bottom: 5px;
+    margin-left: 20px;
 }
 
 .page-header {
     width: 100%;
     border-bottom: solid 2px darkblue;
     border-radius: 0px 0px 50px 50px;
+}
+
+.thumbnail {
+    margin: 0 0 0 25;
 }
