@@ -1,18 +1,14 @@
-﻿body {
-    font-family: 'Segoe UI', sans-serif;
+﻿a:hover {
+    text-decoration: none;
 }
 
-canvas {
-    padding-left: 0;
-    padding-right: 0;
-    margin-left: auto;
-    margin-right: auto;
-    display: block;
-    border-style: solid;
-    border-color: #eee;
-    border-width: 10px;    
+h4 {
+    border-bottom: 1px solid #ccc;
+    padding: 5px;
 }
 
-span {
-    font-style: italic;
+.media-object {
+    margin: 5px;
+    max-width: 64px;
 }
+
