@@ -30,6 +30,16 @@ h2 {
     }
 }
 
+@media (max-width: 384px) {
+    .media-left {
+        display: none;
+    }
+    
+    h2 {
+        border-radius: 0px;
+    }
+}
+
 .serif {
     font-family: Garamond, Georgia, serif
 }
