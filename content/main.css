@@ -44,6 +44,17 @@ h2 {
     }
 }
 
+@media (max-width: 768px){
+    .media {
+        margin: 0px 0px 0px 0px; 
+    }
+
+    h2 {
+        margin-left: 0px;
+        text-align: center;
+    }
+}
+
 @media (max-width: 384px) {
     .media-left {
         display: none;
