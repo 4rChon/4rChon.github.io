@@ -2,13 +2,12 @@
     text-decoration: none;
 }
 
-h4 {
-    border-bottom: 1px solid #ccc;
-    padding: 5px;
-}
-
 .media-object {
     margin: 5px;
     max-width: 64px;
+}
+
+.media-heading {
+    margin: 5px;
 }
 
