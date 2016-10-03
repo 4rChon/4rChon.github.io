@@ -11,3 +11,16 @@
     margin: 5px;
 }
 
+h2 {
+    width: 100%;
+    border-bottom: solid 2px darkblue;
+    border-radius: 0px 20px 20px 0px;
+    padding-bottom: 5px;
+}
+
+.page-header {
+    width: 100%;
+    border-bottom: solid 2px darkblue;
+    border-radius: 0px 0px 50px 50px;
+}
+
