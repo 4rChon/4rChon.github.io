@@ -6713,10 +6713,6 @@ h2 {
     .media-left {
         display: none;
     }
-    
-    h2 {
-        border-radius: 0px;
-    }
 }
 
 .serif {
@@ -6727,14 +6723,10 @@ h2 {
     font-family: Verdana, Arial, sans-serif;
 }
 
-.light-font {
-    font-weight: 300;
-}
-
 iframe {
     border: 1px solid #fffafb;
     width: 100%;
     padding: 0px;
     margin: 0px;
 }
-/*# sourceMappingURL=app.e951a3efa799cad0b51d.css.map*/
+/*# sourceMappingURL=app.340c142bcd698d19d2a8.css.map*/

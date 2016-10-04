@@ -67,10 +67,6 @@ h2 {
     .media-left {
         display: none;
     }
-    
-    h2 {
-        border-radius: 0px;
-    }
 }
 
 .serif {
@@ -79,10 +75,6 @@ h2 {
 
 .sans-serif {
     font-family: Verdana, Arial, sans-serif;
-}
-
-.light-font {
-    font-weight: 300;
 }
 
 iframe {
