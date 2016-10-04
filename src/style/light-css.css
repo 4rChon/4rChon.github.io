@@ -1,0 +1,53 @@
+a:hover {
+    text-decoration: none;
+}
+
+.media-object {
+    margin: 5px;
+    max-width: 64px;
+}
+
+.media-heading {
+    margin: 5px;
+}
+
+h2 {
+    width: 100%;
+    border-bottom: solid 1px #ccc;
+    border-radius: 0px 20px 20px 0px;
+    padding-bottom: 5px;
+    margin-left: 20px;
+}
+
+.page-header {
+    width: 100%;
+    border-bottom: solid 1px #ccc;
+}
+
+@media (min-width: 768px){
+    .media {
+        margin: 0px 0px 0px 25px; 
+    }
+}
+
+@media (max-width: 384px) {
+    .media-left {
+        display: none;
+    }
+    
+    h2 {
+        border-radius: 0px;
+    }
+}
+
+.serif {
+    font-family: Garamond, Georgia, serif
+}
+
+.sans-serif {
+    font-family: Roboto, Arial, sans-serif;
+}
+
+.light-font {
+    font-weight: 300;
+}
