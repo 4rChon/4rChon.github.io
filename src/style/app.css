@@ -1,19 +1,19 @@
 ﻿body small {
-    color: #eee;
+    color: #fffafb;
 }
 
 body {
-    background-color: black;
-    color: #a1c4ed;
+    background-color: #131515;
+    color: #339989;
 }
 
 a:hover {
     text-decoration: none;
-    color: #bf9aca;
+    color: #7de2d1;
 }
 
 a {
-    color: #81a4cd ;
+    color: #339989 ;
 }
 
 .media-object {
@@ -27,15 +27,15 @@ a {
 
 h2 {
     width: 100%;
-    border-bottom: solid 1px #81a4cd;
+    border-bottom: solid 1px #339989;
     padding-bottom: 5px;
     margin-left: 20px;
 }
 
 .page-header {
-    color: #a1c4ed;
+    color: #339989;
     width: 100%;
-    border-bottom: solid 1px #81a4cd;
+    border-bottom: solid 1px #339989;
 }
 
 @media (min-width: 768px){
@@ -78,7 +78,7 @@ h2 {
 }
 
 iframe {
-    border: 1px solid white;
+    border: 1px solid #fffafb;
     width: 100%;
     padding: 0px;
     margin: 0px;
