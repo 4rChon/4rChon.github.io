@@ -17,25 +17,35 @@ a {
 }
 
 .media-object {
-    margin: 5px;
+    padding: 16px;
     max-width: 64px;
+}
+
+.media:hover .media-object {
+    background-color: #339989;
 }
 
 .media-heading {
     margin: 5px;
 }
 
+.media {
+    min-height: 80px;
+}
+
 h2 {
     width: 100%;
-    border-bottom: solid 1px #339989;
     padding-bottom: 5px;
-    margin-left: 20px;
+    padding-top: 5px;
+    margin-left: 35px;
+    border-radius: 5px;
+    border: 1px solid #2f394d;
 }
 
 .page-header {
     color: #339989;
     width: 100%;
-    border-bottom: solid 1px #339989;
+    border-bottom: none;
 }
 
 @media (min-width: 768px){
